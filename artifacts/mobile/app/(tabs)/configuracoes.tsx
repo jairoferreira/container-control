@@ -2,6 +2,7 @@ import {
   CalendarDays,
   Download,
   FileSpreadsheet,
+  FileText,
   Lock,
   Pencil,
   Plus,
@@ -31,6 +32,7 @@ import type { Motorista } from "@/contexts/SettingsContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useColors } from "@/hooks/useColors";
 import { exportarXLSX } from "@/lib/exportCautelasXLSX";
+import { gerarRelatorioTabelaPDF } from "@/lib/generateRelatoriosPDF";
 
 // Carrega DateTimePicker apenas em native (evita erro no bundle web)
 const NativeDatePicker: any =
@@ -396,17 +398,19 @@ export default function ConfiguracoesScreen() {
   const [adminPinModal, setAdminPinModal] = useState(false);
 
   // ── Exportação ───────────────────────────────────────────────────────────
-  const [exportDataInicio, setExportDataInicio] = useState<Date | null>(null);
-  const [exportDataFim,    setExportDataFim]    = useState<Date | null>(null);
-  const [exportStatus, setExportStatus] = useState<"tudo" | "concluida" | "cancelada">("tudo");
-  const [exporting, setExporting] = useState(false);
+  const [exportDataInicio,  setExportDataInicio]  = useState<Date | null>(null);
+  const [exportDataFim,     setExportDataFim]     = useState<Date | null>(null);
+  const [exportStatus,      setExportStatus]      = useState<"tudo" | "concluida" | "cancelada" | "pendente">("tudo");
+  const [exportMotorista,   setExportMotorista]   = useState<string | null>(null);
+  const [exporting,         setExporting]         = useState(false);
+  const [generatingReport,  setGeneratingReport]  = useState(false);
 
   const ativos   = settings.motoristas.filter((m) => m.ativo).length;
   const inativos = settings.motoristas.length - ativos;
 
-  // Contagem em tempo real para o hint
-  const filteredCount = (() => {
-    let list = cauteias;
+  // ── Aplica filtros ────────────────────────────────────────────────────────
+  function aplicarFiltros() {
+    let list = [...cauteias];
     if (exportDataInicio) list = list.filter((c) => new Date(c.createdAt) >= exportDataInicio!);
     if (exportDataFim) {
       const fim = new Date(exportDataFim);
@@ -414,22 +418,46 @@ export default function ConfiguracoesScreen() {
       list = list.filter((c) => new Date(c.createdAt) <= fim);
     }
     if (exportStatus !== "tudo") list = list.filter((c) => c.status === exportStatus);
-    return list.length;
-  })();
+    if (exportMotorista)         list = list.filter((c) => c.motorista === exportMotorista);
+    return list;
+  }
+
+  // Contagem em tempo real
+  const filteredCount = aplicarFiltros().length;
+
+  // ── Descrição dos filtros para o relatório PDF ────────────────────────────
+  function buildDescFiltro(): string {
+    const partes: string[] = [];
+    if (exportMotorista) {
+      partes.push(`Motorista: ${exportMotorista}`);
+    } else {
+      partes.push("Todos os motoristas");
+    }
+    const statusLabels: Record<string, string> = {
+      tudo: "Todos os status", concluida: "Concluídas",
+      cancelada: "Canceladas", pendente: "Pendentes",
+    };
+    partes.push(statusLabels[exportStatus] ?? "Todos os status");
+    if (exportDataInicio || exportDataFim) {
+      const di = exportDataInicio?.toLocaleDateString("pt-BR") ?? "—";
+      const df = exportDataFim?.toLocaleDateString("pt-BR") ?? "—";
+      partes.push(`Período: ${di} a ${df}`);
+    } else {
+      partes.push("Todo o período");
+    }
+    return partes.join("  ·  ");
+  }
 
   async function handleExportar() {
-    let filtradas = [...cauteias];
-    if (exportDataInicio) filtradas = filtradas.filter((c) => new Date(c.createdAt) >= exportDataInicio!);
-    if (exportDataFim) {
-      const fim = new Date(exportDataFim);
-      fim.setHours(23, 59, 59, 999);
-      filtradas = filtradas.filter((c) => new Date(c.createdAt) <= fim);
-    }
-    if (exportStatus !== "tudo") filtradas = filtradas.filter((c) => c.status === exportStatus);
-
     setExporting(true);
-    await exportarXLSX(filtradas);
+    await exportarXLSX(aplicarFiltros());
     setExporting(false);
+  }
+
+  async function handleGerarRelatorio() {
+    setGeneratingReport(true);
+    await gerarRelatorioTabelaPDF(aplicarFiltros(), buildDescFiltro());
+    setGeneratingReport(false);
   }
 
   function confirmRemoveMotorista(m: Motorista) {
@@ -463,7 +491,7 @@ export default function ConfiguracoesScreen() {
           title="Exportar Dados"
           icon={<FileSpreadsheet size={18} color={colors.primary} />}
         >
-          {/* Datas com calendário */}
+          {/* Período */}
           <View style={styles.dateRow}>
             <DatePickerField
               label="Data Inicial"
@@ -477,9 +505,54 @@ export default function ConfiguracoesScreen() {
             />
           </View>
 
-          {/* Tipo de cautelas */}
+          {/* Motorista */}
+          {settings.motoristas.length > 0 && (
+            <>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+                MOTORISTA
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{ marginBottom: 14 }}
+                contentContainerStyle={styles.chipScroll}
+              >
+                <Pressable
+                  style={[styles.statusChip, {
+                    borderColor: exportMotorista === null ? colors.primary : colors.border,
+                    backgroundColor: exportMotorista === null ? colors.primary + "12" : "transparent",
+                  }]}
+                  onPress={() => setExportMotorista(null)}
+                >
+                  <Text style={[styles.statusChipText, { color: exportMotorista === null ? colors.primary : colors.mutedForeground }]}>
+                    Todos
+                  </Text>
+                </Pressable>
+                {settings.motoristas.filter((m) => m.ativo).map((m) => (
+                  <Pressable
+                    key={m.id}
+                    style={[styles.statusChip, {
+                      borderColor: exportMotorista === m.nome ? colors.primary : colors.border,
+                      backgroundColor: exportMotorista === m.nome ? colors.primary + "12" : "transparent",
+                      minWidth: 80,
+                    }]}
+                    onPress={() => setExportMotorista(exportMotorista === m.nome ? null : m.nome)}
+                  >
+                    <Text
+                      style={[styles.statusChipText, { color: exportMotorista === m.nome ? colors.primary : colors.mutedForeground }]}
+                      numberOfLines={1}
+                    >
+                      {m.nome.split(" ")[0]}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </>
+          )}
+
+          {/* Status */}
           <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
-            TIPO DE CAUTELAS
+            STATUS
           </Text>
           <View style={styles.statusPicker}>
             {(
@@ -487,7 +560,8 @@ export default function ConfiguracoesScreen() {
                 { value: "tudo",      label: "Todas"      },
                 { value: "concluida", label: "Concluídas" },
                 { value: "cancelada", label: "Canceladas" },
-              ] as { value: "tudo" | "concluida" | "cancelada"; label: string }[]
+                { value: "pendente",  label: "Pendentes"  },
+              ] as { value: "tudo" | "concluida" | "cancelada" | "pendente"; label: string }[]
             ).map(({ value, label }) => (
               <Pressable
                 key={value}
@@ -517,15 +591,29 @@ export default function ConfiguracoesScreen() {
               : `${filteredCount} de ${cauteias.length} cautela${cauteias.length !== 1 ? "s" : ""} no filtro`}
           </Text>
 
-          {/* Botão */}
+          {/* Excel */}
           <Pressable
             style={[styles.exportBtn, { backgroundColor: exporting ? colors.muted : "#1e3a8a" }]}
             onPress={handleExportar}
-            disabled={exporting}
+            disabled={exporting || generatingReport}
           >
             <Download size={16} color="#fff" />
             <Text style={styles.exportBtnText}>
               {exporting ? "Gerando arquivo…" : "Exportar para Excel (.xlsx)"}
+            </Text>
+          </Pressable>
+
+          <View style={{ height: 8 }} />
+
+          {/* Relatório PDF tabular */}
+          <Pressable
+            style={[styles.exportBtn, { backgroundColor: generatingReport ? colors.muted : "#065f46" }]}
+            onPress={handleGerarRelatorio}
+            disabled={exporting || generatingReport}
+          >
+            <FileText size={16} color="#fff" />
+            <Text style={styles.exportBtnText}>
+              {generatingReport ? "Gerando relatório…" : "Gerar Relatório PDF (tabular)"}
             </Text>
           </Pressable>
         </SectionCard>
@@ -643,10 +731,11 @@ const styles = StyleSheet.create({
     fontSize: 11, fontFamily: "Inter_500Medium",
     textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8,
   },
-  statusPicker: { flexDirection: "row", gap: 8, marginBottom: 14 },
+  chipScroll: { flexDirection: "row", gap: 8 },
+  statusPicker: { flexDirection: "row", gap: 8, marginBottom: 14, flexWrap: "wrap" },
   statusChip: {
     flex: 1, paddingVertical: 10, borderRadius: 12,
-    borderWidth: 1.5, alignItems: "center",
+    borderWidth: 1.5, alignItems: "center", minWidth: 60,
   },
   statusChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   exportHint: {
