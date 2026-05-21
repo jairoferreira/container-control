@@ -372,7 +372,6 @@ function buildHtml(c: Cautela): string {
           <span class="fl">Tipo:</span>
           <span class="fv">${v(c.situacao === "CARREGADO" ? "Cheio" : "Vazio")}</span>
         </div>
-        </div>
         <div class="split-row" style="border-bottom:none">
           <div class="split-cell">
             <span class="fl">Data Movimentação:</span>
