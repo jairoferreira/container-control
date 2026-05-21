@@ -60,6 +60,7 @@
   },
   "dependencies": {
     "@react-native-community/datetimepicker": "^9.1.0",
-    "lucide-react-native": "^1.16.0"
+    "lucide-react-native": "^1.16.0",
+    "xlsx": "^0.18.5"
   }
 }

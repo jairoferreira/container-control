@@ -1,12 +1,9 @@
 import {
-  AlertCircle,
-  CheckCircle2,
-  Cloud,
-  CloudOff,
+  Download,
+  FileSpreadsheet,
   Lock,
   Pencil,
   Plus,
-  RefreshCw,
   Trash2,
   Truck,
   UserCheck,
@@ -15,14 +12,12 @@ import {
 
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -33,6 +28,7 @@ import { useCautela } from "@/contexts/CautelaContext";
 import type { Motorista } from "@/contexts/SettingsContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useColors } from "@/hooks/useColors";
+import { exportarXLSX } from "@/lib/exportCautelasXLSX";
 
 // ── SectionCard ───────────────────────────────────────────────────────────
 function SectionCard({
@@ -270,27 +266,71 @@ export default function ConfiguracoesScreen() {
     settings,
     addMotorista, updateMotorista, removeMotorista,
     addPlaca, removePlaca,
-    setApiUrl, setSyncEnabled,
     setAdminPin, resetToDefaults,
   } = useSettings();
 
-  const { sincronizar, syncState } = useCautela();
-  const [apiUrlInput, setApiUrlInput] = useState(settings.apiUrl);
-  const [syncing, setSyncing] = useState(false);
+  const { cauteias } = useCautela();
 
   // Motorista modal state
   const [motoModal, setMotoModal] = useState<{ open: boolean; motorista: Motorista | null }>({ open: false, motorista: null });
   const [adminPinModal, setAdminPinModal] = useState(false);
 
+  // Exportação
+  const [exportDataInicio, setExportDataInicio] = useState("");
+  const [exportDataFim, setExportDataFim] = useState("");
+  const [exportStatus, setExportStatus] = useState<"tudo" | "concluida" | "cancelada">("tudo");
+  const [exporting, setExporting] = useState(false);
+
+  // Auto-formata data enquanto digita: "01012024" → "01/01/2024"
+  function maskData(raw: string): string {
+    const digits = raw.replace(/\D/g, "").slice(0, 8);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+  }
+
   const ativos = settings.motoristas.filter((m) => m.ativo).length;
   const inativos = settings.motoristas.length - ativos;
 
-  async function handleSync() {
-    setSyncing(true);
-    const { ok, erros } = await sincronizar(settings.apiUrl);
-    setSyncing(false);
-    if (erros === 0) Alert.alert("✅ Sincronizado", `${ok} cautela(s) enviada(s).`);
-    else Alert.alert("⚠️ Parcial", `${ok} enviadas, ${erros} com erro.`);
+  // Converte "DD/MM/AAAA" → Date ou null
+  function parseDataBR(str: string): Date | null {
+    const [d, m, y] = str.trim().split("/").map(Number);
+    if (!d || !m || !y || y < 2000) return null;
+    const dt = new Date(y, m - 1, d);
+    return isNaN(dt.getTime()) ? null : dt;
+  }
+
+  async function handleExportar() {
+    const inicio = exportDataInicio ? parseDataBR(exportDataInicio) : null;
+    const fim    = exportDataFim    ? parseDataBR(exportDataFim)    : null;
+
+    if (exportDataInicio && !inicio) {
+      Alert.alert("Data inválida", "Use o formato DD/MM/AAAA para a data inicial.");
+      return;
+    }
+    if (exportDataFim && !fim) {
+      Alert.alert("Data inválida", "Use o formato DD/MM/AAAA para a data final.");
+      return;
+    }
+
+    let filtradas = [...cauteias];
+
+    if (inicio) {
+      filtradas = filtradas.filter((c) => new Date(c.createdAt) >= inicio);
+    }
+    if (fim) {
+      // inclui o dia final por completo (até 23:59:59)
+      const fimFinal = new Date(fim);
+      fimFinal.setHours(23, 59, 59, 999);
+      filtradas = filtradas.filter((c) => new Date(c.createdAt) <= fimFinal);
+    }
+    if (exportStatus !== "tudo") {
+      filtradas = filtradas.filter((c) => c.status === exportStatus);
+    }
+
+    setExporting(true);
+    await exportarXLSX(filtradas, { dataInicio: exportDataInicio, dataFim: exportDataFim, status: exportStatus });
+    setExporting(false);
   }
 
   function confirmRemoveMotorista(m: Motorista) {
@@ -310,7 +350,7 @@ export default function ConfiguracoesScreen() {
       <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: topPad + 16 }]}>
         <View>
           <Text style={styles.headerTitle}>CONFIGURAÇÕES</Text>
-          <Text style={styles.headerSub}>Cadastros e sincronização em nuvem</Text>
+          <Text style={styles.headerSub}>Cadastros e exportação de dados</Text>
         </View>
       </View>
 
@@ -380,57 +420,86 @@ export default function ConfiguracoesScreen() {
           </Pressable>
         </SectionCard>
 
-        {/* ══ SINCRONIZAÇÃO EM NUVEM ══════════════════════════════════════ */}
-        <SectionCard title="Sincronização em Nuvem" icon={<Cloud size={18} color={colors.primary} />}>
-          <View style={styles.switchRow}>
-            <View style={styles.switchLabel}>
-              {settings.syncEnabled
-                ? <Cloud size={16} color="#22c55e" />
-                : <CloudOff size={16} color={colors.mutedForeground} />}
-              <Text style={[styles.switchText, { color: colors.foreground }]}>
-                {settings.syncEnabled ? "Sincronização ativada" : "Sincronização desativada"}
-              </Text>
+        {/* ══ EXPORTAR DADOS ══════════════════════════════════════════════ */}
+        <SectionCard title="Exportar Dados" icon={<FileSpreadsheet size={18} color={colors.primary} />}>
+
+          {/* Linha de datas */}
+          <View style={styles.exportDateRow}>
+            <View style={styles.exportDateField}>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>DATA INICIAL</Text>
+              <TextInput
+                style={[styles.dateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.input }]}
+                value={exportDataInicio}
+                onChangeText={(v) => setExportDataInicio(maskData(v))}
+                placeholder="DD/MM/AAAA"
+                placeholderTextColor={colors.mutedForeground}
+                keyboardType="numeric"
+                maxLength={10}
+              />
             </View>
-            <Switch value={settings.syncEnabled} onValueChange={setSyncEnabled}
-              trackColor={{ false: colors.muted, true: "#22c55e" }} thumbColor="#fff" />
+            <View style={styles.exportDateField}>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>DATA FINAL</Text>
+              <TextInput
+                style={[styles.dateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.input }]}
+                value={exportDataFim}
+                onChangeText={(v) => setExportDataFim(maskData(v))}
+                placeholder="DD/MM/AAAA"
+                placeholderTextColor={colors.mutedForeground}
+                keyboardType="numeric"
+                maxLength={10}
+              />
+            </View>
           </View>
 
-          <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>URL DO SERVIDOR</Text>
-          <View style={styles.urlRow}>
-            <TextInput
-              style={[styles.urlInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.input }]}
-              value={apiUrlInput} onChangeText={setApiUrlInput}
-              placeholder="http://192.168.1.100:3000"
-              placeholderTextColor={colors.mutedForeground}
-              autoCapitalize="none" keyboardType="url"
-            />
-            <Pressable style={[styles.saveUrlBtn, { backgroundColor: colors.primary }]}
-              onPress={() => { setApiUrl(apiUrlInput); Alert.alert("Salvo", "URL atualizada."); }}>
-              <Text style={styles.saveUrlText}>Salvar</Text>
-            </Pressable>
+          {/* Status selector */}
+          <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 4 }]}>TIPO DE CAUTELAS</Text>
+          <View style={styles.statusPicker}>
+            {(
+              [
+                { value: "tudo",      label: "Todas" },
+                { value: "concluida", label: "Concluídas" },
+                { value: "cancelada", label: "Canceladas" },
+              ] as { value: "tudo" | "concluida" | "cancelada"; label: string }[]
+            ).map(({ value, label }) => (
+              <Pressable
+                key={value}
+                style={[
+                  styles.statusChip,
+                  exportStatus === value && styles.statusChipActive,
+                  { borderColor: exportStatus === value ? colors.primary : colors.border },
+                ]}
+                onPress={() => setExportStatus(value)}
+              >
+                <Text style={[
+                  styles.statusChipText,
+                  { color: exportStatus === value ? colors.primary : colors.mutedForeground },
+                ]}>
+                  {label}
+                </Text>
+              </Pressable>
+            ))}
           </View>
-          <Text style={[styles.urlHint, { color: colors.mutedForeground }]}>
-            IP local da máquina onde o servidor está rodando
+
+          {/* Contagem rápida */}
+          <Text style={[styles.exportHint, { color: colors.mutedForeground }]}>
+            {cauteias.length} cautela{cauteias.length !== 1 ? "s" : ""} no total
+            {exportDataInicio || exportDataFim || exportStatus !== "tudo"
+              ? " — filtro aplicado no momento do download"
+              : ""}
           </Text>
 
-          {syncState.lastSync && (
-            <View style={[styles.syncStatus, { backgroundColor: colors.muted }]}>
-              {syncState.status === "ok"
-                ? <CheckCircle2 size={14} color="#22c55e" />
-                : <AlertCircle size={14} color="#f59e0b" />}
-              <Text style={[styles.syncStatusText, { color: colors.mutedForeground }]}>
-                Último sync: {syncState.lastSync}
-                {syncState.pendentes > 0 ? `  ·  ${syncState.pendentes} pendente(s)` : ""}
-              </Text>
-            </View>
-          )}
-
+          {/* Botão exportar */}
           <Pressable
-            style={[styles.syncBtn, { backgroundColor: syncing ? colors.muted : "#1e3a8a" }]}
-            onPress={handleSync} disabled={syncing}
+            style={[styles.exportBtn, { backgroundColor: exporting ? colors.muted : "#1e3a8a" }]}
+            onPress={handleExportar}
+            disabled={exporting}
           >
-            {syncing ? <ActivityIndicator size="small" color="#fff" /> : <RefreshCw size={16} color="#fff" />}
-            <Text style={styles.syncBtnText}>{syncing ? "Sincronizando…" : "Sincronizar Agora"}</Text>
+            {exporting
+              ? <Download size={16} color="#fff" />
+              : <Download size={16} color="#fff" />}
+            <Text style={styles.exportBtnText}>
+              {exporting ? "Gerando arquivo…" : "Exportar para Excel (.xlsx)"}
+            </Text>
           </Pressable>
         </SectionCard>
 
@@ -497,29 +566,31 @@ const styles = StyleSheet.create({
   },
   adminPinText: { color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 14 },
 
-  switchRow: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    marginBottom: 16, paddingBottom: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#E5E7EB",
-  },
-  switchLabel: { flexDirection: "row", alignItems: "center", gap: 8 },
-  switchText: { fontSize: 14, fontFamily: "Inter_500Medium" },
   fieldLabel: { fontSize: 11, fontFamily: "Inter_500Medium", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8 },
-  urlRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
-  urlInput: { flex: 1, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, fontFamily: "Inter_400Regular" },
-  saveUrlBtn: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, justifyContent: "center" },
-  saveUrlText: { color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 13 },
-  urlHint: { fontSize: 11, fontFamily: "Inter_400Regular", lineHeight: 16, marginBottom: 12 },
-  syncStatus: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    padding: 10, borderRadius: 10, marginBottom: 8,
+
+  // Exportação
+  exportDateRow: { flexDirection: "row", gap: 10, marginBottom: 14 },
+  exportDateField: { flex: 1 },
+  dateInput: {
+    borderWidth: 1, borderRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 11,
+    fontSize: 14, fontFamily: "Inter_500Medium",
+    textAlign: "center",
   },
-  syncStatusText: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  syncBtn: {
+  statusPicker: { flexDirection: "row", gap: 8, marginBottom: 14 },
+  statusChip: {
+    flex: 1, paddingVertical: 10, borderRadius: 12,
+    borderWidth: 1.5, alignItems: "center",
+  },
+  statusChipActive: {},
+  statusChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  exportHint: { fontSize: 11, fontFamily: "Inter_400Regular", lineHeight: 16, marginBottom: 14 },
+  exportBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 8, paddingVertical: 13, borderRadius: 14, marginTop: 4,
+    gap: 8, paddingVertical: 14, borderRadius: 14,
   },
-  syncBtnText: { color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 14 },
+  exportBtnText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 14 },
+
   resetBtn: { alignItems: "center", paddingVertical: 14, borderRadius: 14, borderWidth: 1, marginTop: 8 },
   resetText: { color: "#ef4444", fontFamily: "Inter_600SemiBold", fontSize: 13 },
 });
