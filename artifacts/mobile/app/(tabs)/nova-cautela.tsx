@@ -27,35 +27,8 @@ import type {
   TipoVeiculo,
 } from "@/contexts/CautelaContext";
 import { useCautela } from "@/contexts/CautelaContext";
+import { useSettings } from "@/contexts/SettingsContext";
 import { useColors } from "@/hooks/useColors";
-
-// ── Listas fixas vindas do Google Form do gestor ──────────────────────────
-const MOTORISTAS = [
-  "ALEKSANDRO FERREIRA DE OLIVEIRA",
-  "AMIRALDO BRANCHES OLIVEIRA",
-  "ARGEMIRO SAMPAIO XAVIER",
-  "CLAUDEMIR SANTOS DA SILVA",
-  "DEMACI DIAS DOS SANTOS",
-  "EDILSON DE LUCENA CORREIA",
-  "FRANCISCO DAS CHAGAS NEVES",
-  "JOSE EVERARDO NOBRE",
-  "JOSE HUMBERTO DE OLIVEIRA",
-  "JOSÉ UBIRATAN RODRIGUES",
-  "JÚLIO CESAR SILVA OLIVEIRA",
-  "MAURÍCIO MIRANDA DA SILVA",
-  "PAULO ALVES SILVA",
-  "PAULO LONGEN",
-  "PEDRO DA SILVA DAMASCENO",
-  "RONALD DOS ANJOS SOUZA",
-  "SANDRO LUIZ DA SILVA OLIVEIRA",
-];
-
-const PLACAS_CAVALO = [
-  "FYS1140", "IIT5F54", "JXG4463", "JXM7918", "JXO7053",
-  "NOJ2358", "NOJ4403", "NOP0408", "NOU4153", "NOW3D40",
-  "NOX0579", "OAJ1855", "OAM1512", "OAM1522", "OCD0744",
-  "PHF6227", "PHU3G94", "PHY4A96",
-];
 
 const OPERACOES = ["MANAUS", "BOA VISTA", "MADEIRA", "ITACOATIARA", "IRANDUBA", "MANACAPURU", "Outro"];
 const TIPOS_VEICULO: TipoVeiculo[] = ["CAVALINHO ATRELADO", "SÓ O CAVALINHO", "CAMINHÃO", "CARRO PEQUENO"];
@@ -220,6 +193,11 @@ export default function NovaCautelaScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { cauteias, addCautela } = useCautela();
+  const { settings } = useSettings();
+
+  // Listas dinâmicas vindas das Configurações (gerenciadas pelo gestor)
+  const MOTORISTAS = settings.motoristas;
+  const PLACAS_CAVALO = settings.placasCavalo;
   const topPad = Platform.OS === "web" ? 0 : insets.top;
   const botPad = Platform.OS === "web" ? 34 : 0;
 

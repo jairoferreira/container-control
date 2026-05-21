@@ -3,7 +3,7 @@ import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Tabs } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
-import { Home, List, PlusCircle } from "lucide-react-native";
+import { Home, List, PlusCircle, Settings } from "lucide-react-native";
 import React from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
@@ -23,6 +23,10 @@ function NativeTabLayout() {
       <NativeTabs.Trigger name="historico">
         <Icon sf={{ default: "list.bullet", selected: "list.bullet.circle.fill" }} />
         <Label>Histórico</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="configuracoes">
+        <Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} />
+        <Label>Config.</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -99,6 +103,18 @@ function ClassicTabLayout() {
               <SymbolView name="list.bullet" tintColor={color} size={22} />
             ) : (
               <List size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="configuracoes"
+        options={{
+          title: "Config.",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="gearshape" tintColor={color} size={22} />
+            ) : (
+              <Settings size={22} color={color} />
             ),
         }}
       />
