@@ -13,7 +13,7 @@ function cb(checked: boolean) {
 }
 
 function buildHtml(c: Cautela): string {
-  const isCheio = c.tipoCabinete === "cheio";
+  const isCheio = c.situacao === "CARREGADO";
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -311,16 +311,16 @@ function buildHtml(c: Cautela): string {
         <div class="od-block">
           <div class="frow">
             <span class="fl">Local:</span>
-            <span class="fv">${v(c.origemLocal)}</span>
+            <span class="fv">${v(c.origem)}</span>
           </div>
           <div class="dh-row">
             <div class="dh-cell">
               <span class="fl">Data:</span>
-              <span class="fv">${v(c.origemData)}</span>
+              <span class="fv">${v(c.dataMov)}</span>
             </div>
             <div class="dh-cell">
               <span class="fl">Horário:</span>
-              <span class="fv">${v(c.origemHorario)}</span>
+              <span class="fv">${new Date(c.createdAt).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span>
             </div>
           </div>
         </div>
@@ -329,16 +329,16 @@ function buildHtml(c: Cautela): string {
         <div class="od-block">
           <div class="frow">
             <span class="fl">Local:</span>
-            <span class="fv">${v(c.destinoLocal)}</span>
+            <span class="fv">${v(c.destino)}</span>
           </div>
           <div class="dh-row">
             <div class="dh-cell">
               <span class="fl">Data:</span>
-              <span class="fv">${v(c.destinoData)}</span>
+              <span class="fv">${""}</span>
             </div>
             <div class="dh-cell">
               <span class="fl">Horário:</span>
-              <span class="fv">${v(c.destinoHorario)}</span>
+              <span class="fv">${""}</span>
             </div>
           </div>
         </div>
@@ -348,20 +348,20 @@ function buildHtml(c: Cautela): string {
       <div class="mid-fields">
         <div class="frow">
           <span class="fl">Booking:</span>
-          <span class="fv">${v(c.booking)}</span>
+          <span class="fv">${""}</span>
         </div>
         <div class="frow">
           <span class="fl">Armador:</span>
-          <span class="fv">${v(c.armador)}</span>
+          <span class="fv">${""}</span>
         </div>
         <div class="split-row">
           <div class="split-cell">
             <span class="fl">Peso Líq.:</span>
-            <span class="fv">${v(c.pesoLiq)}</span>
+            <span class="fv">${""}</span>
           </div>
           <div class="split-cell">
             <span class="fl">Lacre (Armador):</span>
-            <span class="fv">${v(c.lacreArmador)}</span>
+            <span class="fv">${v(c.lacre)}</span>
           </div>
         </div>
         <div class="frow" style="min-height:32px; align-items:flex-start; padding-top:3px;">
@@ -385,21 +385,21 @@ function buildHtml(c: Cautela): string {
         <div class="split-row">
           <div class="split-cell">
             <span class="fl">Tara:</span>
-            <span class="fv">${v(c.tara)}</span>
+            <span class="fv">${""}</span>
           </div>
           <div class="split-cell">
             <span class="fl">Peso Bruto:</span>
-            <span class="fv">${v(c.pesoBruto)}</span>
+            <span class="fv">${""}</span>
           </div>
         </div>
         <div class="split-row">
           <div class="split-cell" style="flex:2">
             <span class="fl">Nota(s) Fiscal(is):</span>
-            <span class="fv">${v(c.notasFiscais)}</span>
+            <span class="fv">${""}</span>
           </div>
           <div class="split-cell">
             <span class="fl">Tipo:</span>
-            <span class="fv">${v(c.tipoCabinete === "cheio" ? "Cheio" : "Vazio")}</span>
+            <span class="fv">${v(c.situacao === "CARREGADO" ? "Cheio" : "Vazio")}</span>
           </div>
         </div>
         <div class="split-row" style="border-bottom:none">
@@ -433,7 +433,7 @@ function buildHtml(c: Cautela): string {
       </div>
       <div class="f-cell">
         <span class="fl">Transportador:</span>
-        <span class="fv">${v(c.transportador)}</span>
+        <span class="fv">${"THIBA LOGÍSTICA"}</span>
       </div>
     </div>
     <div class="f-row">
@@ -443,13 +443,13 @@ function buildHtml(c: Cautela): string {
       </div>
       <div class="f-cell" style="flex:0.5">
         <span class="fl">RG.:</span>
-        <span class="fv">${v(c.rg)}</span>
+        <span class="fv">${""}</span>
       </div>
     </div>
     <div class="f-row">
       <div class="f-cell">
         <span class="fl">Recebedor:</span>
-        <span class="fv">${v(c.recebedor)}</span>
+        <span class="fv">${""}</span>
       </div>
     </div>
   </div>
