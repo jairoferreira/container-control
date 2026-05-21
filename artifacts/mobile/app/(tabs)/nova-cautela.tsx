@@ -300,7 +300,10 @@ export default function NovaCautelaScreen() {
     if (Platform.OS !== "web") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
-    router.replace("/(tabs)/historico");
+
+    // navigate() troca de aba corretamente tanto na web quanto no native
+    // (router.replace falha dentro de tab navigators)
+    router.navigate("/(tabs)");
   }
 
   return (
