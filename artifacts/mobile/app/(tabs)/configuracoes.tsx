@@ -1,5 +1,7 @@
 import {
   CalendarDays,
+  Check,
+  ChevronDown,
   Download,
   FileSpreadsheet,
   FileText,
@@ -196,6 +198,148 @@ const dpf = StyleSheet.create({
     minHeight: 44,
   },
   displayText: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium" },
+});
+
+// ── MultiSelectDropdown ───────────────────────────────────────────────────────
+function MultiSelectDropdown({
+  label,
+  options,
+  selected,
+  onChange,
+  allLabel = "Todos",
+}: {
+  label: string;
+  options: { value: string; label: string }[];
+  selected: string[];
+  onChange: (v: string[]) => void;
+  allLabel?: string;
+}) {
+  const colors = useColors();
+  const [open, setOpen] = useState(false);
+
+  const isAll = selected.length === 0;
+  const summaryText = isAll
+    ? allLabel
+    : selected.length === 1
+    ? (options.find((o) => o.value === selected[0])?.label ?? "1 selecionado")
+    : `${selected.length} selecionados`;
+
+  function toggle(value: string) {
+    if (selected.includes(value)) onChange(selected.filter((v) => v !== value));
+    else onChange([...selected, value]);
+  }
+
+  const hasValue = selected.length > 0;
+
+  return (
+    <View style={msd.wrap}>
+      <Text style={[msd.label, { color: colors.mutedForeground }]}>{label}</Text>
+      <Pressable
+        style={[msd.btn, {
+          borderColor: hasValue ? colors.primary : colors.border,
+          backgroundColor: colors.input,
+        }]}
+        onPress={() => setOpen(true)}
+      >
+        <Text
+          style={[msd.btnText, { color: hasValue ? colors.foreground : colors.mutedForeground }]}
+          numberOfLines={1}
+        >
+          {summaryText}
+        </Text>
+        <ChevronDown size={14} color={hasValue ? colors.primary : colors.mutedForeground} />
+      </Pressable>
+
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Pressable style={msd.overlay} onPress={() => setOpen(false)}>
+          {/* stopPropagation no painel para não fechar ao clicar dentro */}
+          <View
+            style={[msd.panel, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onStartShouldSetResponder={() => true}
+          >
+            <Text style={[msd.panelTitle, { color: colors.foreground }]}>{label}</Text>
+
+            {/* "Todos" */}
+            <Pressable style={[msd.option, { borderBottomColor: colors.border }]} onPress={() => onChange([])}>
+              <View style={[msd.checkbox, {
+                borderColor: isAll ? colors.primary : colors.border,
+                backgroundColor: isAll ? colors.primary : "transparent",
+              }]}>
+                {isAll && <Check size={11} color="#fff" strokeWidth={3} />}
+              </View>
+              <Text style={[msd.optionText, { color: colors.foreground, fontFamily: isAll ? "Inter_700Bold" : "Inter_400Regular" }]}>
+                {allLabel}
+              </Text>
+            </Pressable>
+
+            {options.map((opt) => {
+              const checked = selected.includes(opt.value);
+              return (
+                <Pressable
+                  key={opt.value}
+                  style={[msd.option, { borderBottomColor: colors.border }]}
+                  onPress={() => toggle(opt.value)}
+                >
+                  <View style={[msd.checkbox, {
+                    borderColor: checked ? colors.primary : colors.border,
+                    backgroundColor: checked ? colors.primary : "transparent",
+                  }]}>
+                    {checked && <Check size={11} color="#fff" strokeWidth={3} />}
+                  </View>
+                  <Text style={[msd.optionText, { color: colors.foreground, fontFamily: checked ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+
+            <Pressable
+              style={[msd.confirmBtn, { backgroundColor: colors.primary }]}
+              onPress={() => setOpen(false)}
+            >
+              <Text style={msd.confirmText}>Confirmar</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+    </View>
+  );
+}
+const msd = StyleSheet.create({
+  wrap: { flex: 1 },
+  label: {
+    fontSize: 11, fontFamily: "Inter_500Medium",
+    textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8,
+  },
+  btn: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    borderWidth: 1, borderRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 11, minHeight: 44,
+  },
+  btnText: { flex: 1, fontSize: 13, fontFamily: "Inter_500Medium" },
+  overlay: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center", alignItems: "center", padding: 24,
+  },
+  panel: {
+    width: "100%", maxWidth: 360,
+    borderRadius: 20, borderWidth: 1, padding: 20,
+  },
+  panelTitle: { fontSize: 15, fontFamily: "Inter_700Bold", marginBottom: 14 },
+  option: {
+    flexDirection: "row", alignItems: "center", gap: 14,
+    paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  checkbox: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 1.5,
+    alignItems: "center", justifyContent: "center", flexShrink: 0,
+  },
+  optionText: { fontSize: 14, flex: 1 },
+  confirmBtn: {
+    marginTop: 18, paddingVertical: 13,
+    borderRadius: 14, alignItems: "center",
+  },
+  confirmText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 14 },
 });
 
 // ── Lista editável simples (placas) ───────────────────────────────────────────
@@ -400,8 +544,8 @@ export default function ConfiguracoesScreen() {
   // ── Exportação ───────────────────────────────────────────────────────────
   const [exportDataInicio,  setExportDataInicio]  = useState<Date | null>(null);
   const [exportDataFim,     setExportDataFim]     = useState<Date | null>(null);
-  const [exportStatus,      setExportStatus]      = useState<"tudo" | "concluida" | "cancelada" | "pendente">("tudo");
-  const [exportMotorista,   setExportMotorista]   = useState<string | null>(null);
+  const [exportMotoristas,  setExportMotoristas]  = useState<string[]>([]);
+  const [exportStatuses,    setExportStatuses]    = useState<string[]>([]);
   const [exporting,         setExporting]         = useState(false);
   const [generatingReport,  setGeneratingReport]  = useState(false);
 
@@ -417,8 +561,8 @@ export default function ConfiguracoesScreen() {
       fim.setHours(23, 59, 59, 999);
       list = list.filter((c) => new Date(c.createdAt) <= fim);
     }
-    if (exportStatus !== "tudo") list = list.filter((c) => c.status === exportStatus);
-    if (exportMotorista)         list = list.filter((c) => c.motorista === exportMotorista);
+    if (exportMotoristas.length > 0) list = list.filter((c) => exportMotoristas.includes(c.motorista));
+    if (exportStatuses.length > 0)   list = list.filter((c) => exportStatuses.includes(c.status));
     return list;
   }
 
@@ -426,18 +570,21 @@ export default function ConfiguracoesScreen() {
   const filteredCount = aplicarFiltros().length;
 
   // ── Descrição dos filtros para o relatório PDF ────────────────────────────
+  const STATUS_LABEL: Record<string, string> = {
+    concluida: "Concluídas", cancelada: "Canceladas", pendente: "Pendentes",
+  };
   function buildDescFiltro(): string {
     const partes: string[] = [];
-    if (exportMotorista) {
-      partes.push(`Motorista: ${exportMotorista}`);
-    } else {
-      partes.push("Todos os motoristas");
-    }
-    const statusLabels: Record<string, string> = {
-      tudo: "Todos os status", concluida: "Concluídas",
-      cancelada: "Canceladas", pendente: "Pendentes",
-    };
-    partes.push(statusLabels[exportStatus] ?? "Todos os status");
+    partes.push(
+      exportMotoristas.length === 0
+        ? "Todos os motoristas"
+        : exportMotoristas.join(", ")
+    );
+    partes.push(
+      exportStatuses.length === 0
+        ? "Todos os status"
+        : exportStatuses.map((s) => STATUS_LABEL[s] ?? s).join(", ")
+    );
     if (exportDataInicio || exportDataFim) {
       const di = exportDataInicio?.toLocaleDateString("pt-BR") ?? "—";
       const df = exportDataFim?.toLocaleDateString("pt-BR") ?? "—";
@@ -505,83 +652,28 @@ export default function ConfiguracoesScreen() {
             />
           </View>
 
-          {/* Motorista */}
-          {settings.motoristas.length > 0 && (
-            <>
-              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
-                MOTORISTA
-              </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={{ marginBottom: 14 }}
-                contentContainerStyle={styles.chipScroll}
-              >
-                <Pressable
-                  style={[styles.statusChip, {
-                    borderColor: exportMotorista === null ? colors.primary : colors.border,
-                    backgroundColor: exportMotorista === null ? colors.primary + "12" : "transparent",
-                  }]}
-                  onPress={() => setExportMotorista(null)}
-                >
-                  <Text style={[styles.statusChipText, { color: exportMotorista === null ? colors.primary : colors.mutedForeground }]}>
-                    Todos
-                  </Text>
-                </Pressable>
-                {settings.motoristas.filter((m) => m.ativo).map((m) => (
-                  <Pressable
-                    key={m.id}
-                    style={[styles.statusChip, {
-                      borderColor: exportMotorista === m.nome ? colors.primary : colors.border,
-                      backgroundColor: exportMotorista === m.nome ? colors.primary + "12" : "transparent",
-                      minWidth: 80,
-                    }]}
-                    onPress={() => setExportMotorista(exportMotorista === m.nome ? null : m.nome)}
-                  >
-                    <Text
-                      style={[styles.statusChipText, { color: exportMotorista === m.nome ? colors.primary : colors.mutedForeground }]}
-                      numberOfLines={1}
-                    >
-                      {m.nome.split(" ")[0]}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </>
-          )}
-
-          {/* Status */}
-          <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
-            STATUS
-          </Text>
-          <View style={styles.statusPicker}>
-            {(
-              [
-                { value: "tudo",      label: "Todas"      },
+          {/* Dropdowns: Motorista + Status lado a lado */}
+          <View style={styles.dropdownRow}>
+            <MultiSelectDropdown
+              label="Motorista"
+              allLabel="Todos os motoristas"
+              options={settings.motoristas
+                .filter((m) => m.ativo)
+                .map((m) => ({ value: m.nome, label: m.nome }))}
+              selected={exportMotoristas}
+              onChange={setExportMotoristas}
+            />
+            <MultiSelectDropdown
+              label="Status"
+              allLabel="Todos os status"
+              options={[
                 { value: "concluida", label: "Concluídas" },
-                { value: "cancelada", label: "Canceladas" },
                 { value: "pendente",  label: "Pendentes"  },
-              ] as { value: "tudo" | "concluida" | "cancelada" | "pendente"; label: string }[]
-            ).map(({ value, label }) => (
-              <Pressable
-                key={value}
-                style={[
-                  styles.statusChip,
-                  {
-                    borderColor: exportStatus === value ? colors.primary : colors.border,
-                    backgroundColor: exportStatus === value ? colors.primary + "12" : "transparent",
-                  },
-                ]}
-                onPress={() => setExportStatus(value)}
-              >
-                <Text style={[
-                  styles.statusChipText,
-                  { color: exportStatus === value ? colors.primary : colors.mutedForeground },
-                ]}>
-                  {label}
-                </Text>
-              </Pressable>
-            ))}
+                { value: "cancelada", label: "Canceladas" },
+              ]}
+              selected={exportStatuses}
+              onChange={setExportStatuses}
+            />
           </View>
 
           {/* Contagem em tempo real */}
@@ -726,18 +818,12 @@ const styles = StyleSheet.create({
   content: { padding: 16 },
 
   // Exportação
-  dateRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
+  dateRow:      { flexDirection: "row", gap: 10, marginBottom: 16 },
+  dropdownRow:  { flexDirection: "row", gap: 10, marginBottom: 14 },
   fieldLabel: {
     fontSize: 11, fontFamily: "Inter_500Medium",
     textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8,
   },
-  chipScroll: { flexDirection: "row", gap: 8 },
-  statusPicker: { flexDirection: "row", gap: 8, marginBottom: 14, flexWrap: "wrap" },
-  statusChip: {
-    flex: 1, paddingVertical: 10, borderRadius: 12,
-    borderWidth: 1.5, alignItems: "center", minWidth: 60,
-  },
-  statusChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   exportHint: {
     fontSize: 11, fontFamily: "Inter_400Regular",
     lineHeight: 16, marginBottom: 14,
