@@ -10,45 +10,50 @@ import React, {
 export interface AuthUser {
   nome: string;
   isAdmin: boolean;
+  loginAt: number; // timestamp ms — usado para expirar sessão em 12 h
 }
 
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
-  loginMotorista: (
-    nome: string,
-    pin: string,
-    pins: Record<string, string>
-  ) => boolean;
-  loginAdmin: (pin: string, adminPin: string) => boolean;
+  /** Chama após validação bem-sucedida na LoginScreen */
+  loginMotorista: (nome: string) => void;
+  /** Chama após validação bem-sucedida na LoginScreen */
+  loginAdmin: () => void;
   logout: () => void;
 }
 
-const SESSION_KEY = "@auth_session_v1";
+const SESSION_KEY      = "@auth_session_v1";
+const SESSION_EXPIRY_MS = 12 * 60 * 60 * 1000; // 12 horas
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  // true enquanto carregamos a sessão salva do AsyncStorage
   const [loading, setLoading] = useState(true);
 
-  // ── Restaurar sessão ao iniciar / recarregar ─────────────────────────
+  // ── Restaurar sessão ao iniciar / F5 ────────────────────────────────────
   useEffect(() => {
     AsyncStorage.getItem(SESSION_KEY)
-      .then((raw) => {
-        if (raw) {
-          const saved = JSON.parse(raw) as AuthUser;
-          setUser(saved);
+      .then(async (raw) => {
+        if (!raw) return;
+        const saved = JSON.parse(raw) as AuthUser;
+
+        // Expirar sessões com mais de 12 horas
+        if (saved.loginAt && Date.now() - saved.loginAt > SESSION_EXPIRY_MS) {
+          await AsyncStorage.removeItem(SESSION_KEY);
+          return; // não restaura — força novo login
         }
+
+        setUser(saved);
       })
       .catch(() => {
-        // sessão corrompida — ignora, exige login
+        // Sessão corrompida — ignora, exige novo login
       })
       .finally(() => setLoading(false));
   }, []);
 
-  // ── Helpers internos ─────────────────────────────────────────────────
+  // ── Helpers internos ─────────────────────────────────────────────────────
   const saveSession = useCallback((u: AuthUser) => {
     setUser(u);
     AsyncStorage.setItem(SESSION_KEY, JSON.stringify(u)).catch(() => {});
@@ -59,32 +64,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
   }, []);
 
-  // ── Login motorista ──────────────────────────────────────────────────
+  // ── Login motorista ───────────────────────────────────────────────────────
+  // A validação (matrícula + PIN) ocorre na LoginScreen antes de chamar isto.
   const loginMotorista = useCallback(
-    (nome: string, pin: string, pins: Record<string, string>): boolean => {
-      const stored = pins[nome] ?? "0000"; // padrão "0000" sem PIN cadastrado
-      if (pin === stored) {
-        saveSession({ nome, isAdmin: false });
-        return true;
-      }
-      return false;
+    (nome: string) => {
+      saveSession({ nome, isAdmin: false, loginAt: Date.now() });
     },
     [saveSession]
   );
 
-  // ── Login admin ──────────────────────────────────────────────────────
-  const loginAdmin = useCallback(
-    (pin: string, adminPin: string): boolean => {
-      if (pin === adminPin) {
-        saveSession({ nome: "Administrador", isAdmin: true });
-        return true;
-      }
-      return false;
-    },
-    [saveSession]
-  );
+  // ── Login admin ───────────────────────────────────────────────────────────
+  const loginAdmin = useCallback(() => {
+    saveSession({ nome: "Administrador", isAdmin: true, loginAt: Date.now() });
+  }, [saveSession]);
 
-  // ── Logout ───────────────────────────────────────────────────────────
+  // ── Logout ────────────────────────────────────────────────────────────────
   const logout = useCallback(() => clearSession(), [clearSession]);
 
   return (
