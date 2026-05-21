@@ -1,4 +1,5 @@
 import {
+  CalendarDays,
   Download,
   FileSpreadsheet,
   Lock,
@@ -8,6 +9,7 @@ import {
   Truck,
   UserCheck,
   UserX,
+  X,
 } from "lucide-react-native";
 
 import React, { useState } from "react";
@@ -30,7 +32,13 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { useColors } from "@/hooks/useColors";
 import { exportarXLSX } from "@/lib/exportCautelasXLSX";
 
-// ── SectionCard ───────────────────────────────────────────────────────────
+// Carrega DateTimePicker apenas em native (evita erro no bundle web)
+const NativeDatePicker: any =
+  Platform.OS !== "web"
+    ? require("@react-native-community/datetimepicker").default
+    : null;
+
+// ── SectionCard ───────────────────────────────────────────────────────────────
 function SectionCard({
   title, icon, children,
 }: {
@@ -63,7 +71,132 @@ const card = StyleSheet.create({
   title: { fontSize: 15, fontFamily: "Inter_700Bold" },
 });
 
-// ── Lista editável simples (placas) ───────────────────────────────────────
+// ── DatePickerField ───────────────────────────────────────────────────────────
+function DatePickerField({
+  label, value, onChange, placeholder = "Qualquer data",
+}: {
+  label: string;
+  value: Date | null;
+  onChange: (d: Date | null) => void;
+  placeholder?: string;
+}) {
+  const colors = useColors();
+  const [showNative, setShowNative] = useState(false);
+
+  const displayText = value
+    ? value.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
+    : placeholder;
+
+  // ISO date string (YYYY-MM-DD) para o input HTML
+  const isoVal = value
+    ? `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`
+    : "";
+
+  function handleWebChange(e: any) {
+    const v = e.target.value;
+    if (!v) { onChange(null); return; }
+    // Interpreta como data local (não UTC)
+    const [y, m, d] = v.split("-").map(Number);
+    onChange(new Date(y, m - 1, d));
+  }
+
+  const borderColor = value ? colors.primary : colors.border;
+  const iconColor   = value ? colors.primary : colors.mutedForeground;
+
+  return (
+    <View style={dpf.fieldWrap}>
+      <Text style={[dpf.label, { color: colors.mutedForeground }]}>{label}</Text>
+
+      {/* ── Web: input HTML type="date" estilizado ─────────────────────── */}
+      {Platform.OS === "web" && (
+        <View style={[dpf.btn, { borderColor, backgroundColor: colors.input }]}>
+          <CalendarDays size={15} color={iconColor} />
+          {React.createElement("input", {
+            type: "date",
+            value: isoVal,
+            onChange: handleWebChange,
+            style: {
+              flex: 1,
+              minWidth: 0,
+              border: "none",
+              outline: "none",
+              background: "transparent",
+              fontSize: 14,
+              cursor: "pointer",
+              color: value ? colors.foreground : colors.mutedForeground,
+              fontFamily: "'Inter', system-ui, sans-serif",
+              padding: 0,
+            },
+          })}
+          {value
+            ? React.createElement(
+                "button",
+                {
+                  type: "button",
+                  onClick: (e: any) => { e.stopPropagation(); onChange(null); },
+                  style: {
+                    background: "none", border: "none", cursor: "pointer",
+                    padding: "0 2px", display: "flex", alignItems: "center",
+                  },
+                },
+                React.createElement(X, { size: 14, color: colors.mutedForeground })
+              )
+            : null}
+        </View>
+      )}
+
+      {/* ── Native: botão + DateTimePicker ────────────────────────────── */}
+      {Platform.OS !== "web" && (
+        <>
+          <Pressable
+            style={[dpf.btn, { borderColor, backgroundColor: colors.input }]}
+            onPress={() => setShowNative(true)}
+          >
+            <CalendarDays size={15} color={iconColor} />
+            <Text style={[dpf.displayText, { color: value ? colors.foreground : colors.mutedForeground }]}>
+              {displayText}
+            </Text>
+            {value && (
+              <Pressable
+                onPress={(e) => { (e as any).stopPropagation?.(); onChange(null); }}
+                hitSlop={8}
+              >
+                <X size={14} color={colors.mutedForeground} />
+              </Pressable>
+            )}
+          </Pressable>
+          {showNative && NativeDatePicker && (
+            <NativeDatePicker
+              value={value ?? new Date()}
+              mode="date"
+              display="default"
+              onChange={(_: any, selectedDate?: Date) => {
+                setShowNative(false);
+                if (selectedDate) onChange(selectedDate);
+              }}
+            />
+          )}
+        </>
+      )}
+    </View>
+  );
+}
+const dpf = StyleSheet.create({
+  fieldWrap: { flex: 1 },
+  label: {
+    fontSize: 11, fontFamily: "Inter_500Medium",
+    textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8,
+  },
+  btn: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    borderWidth: 1, borderRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 11,
+    minHeight: 44,
+  },
+  displayText: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium" },
+});
+
+// ── Lista editável simples (placas) ───────────────────────────────────────────
 function EditableList({
   items, placeholder, onAdd, onRemove, autoCapitalize,
 }: {
@@ -124,7 +257,7 @@ const list = StyleSheet.create({
   count: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 8, textAlign: "right" },
 });
 
-// ── Card de motorista individual ──────────────────────────────────────────
+// ── Card de motorista individual ──────────────────────────────────────────────
 function MotoristaCadastroItem({
   motorista, onEdit, onRemove,
 }: { motorista: Motorista; onEdit: () => void; onRemove: () => void }) {
@@ -132,44 +265,32 @@ function MotoristaCadastroItem({
   const ativo = motorista.ativo;
   return (
     <View style={[mitem.wrap, { borderBottomColor: colors.border }]}>
-      {/* Avatar */}
       <View style={[mitem.avatar, { backgroundColor: ativo ? colors.primary + "18" : colors.muted }]}>
         <Text style={[mitem.avatarText, { color: ativo ? colors.primary : colors.mutedForeground }]}>
           {motorista.nome.charAt(0)}
         </Text>
       </View>
-      {/* Dados */}
       <View style={{ flex: 1, gap: 3 }}>
         <View style={mitem.nomeRow}>
           <Text style={[mitem.nome, { color: colors.foreground }]} numberOfLines={1}>
             {motorista.nome}
           </Text>
-          {motorista.matricula ? (
-            <Text style={[mitem.matricula, { color: colors.mutedForeground }]}>
-              {motorista.matricula}
-            </Text>
-          ) : null}
+          {motorista.matricula
+            ? <Text style={[mitem.matricula, { color: colors.mutedForeground }]}>{motorista.matricula}</Text>
+            : null}
         </View>
         <View style={mitem.badges}>
-          {motorista.cnh ? (
-            <Text style={[mitem.badge, { backgroundColor: "#eff6ff", color: "#1d4ed8" }]}>
-              CNH {motorista.cnh.slice(-4).padStart(motorista.cnh.length, "•")}
-            </Text>
-          ) : null}
-          {motorista.telefone ? (
-            <Text style={[mitem.badge, { backgroundColor: "#f0fdf4", color: "#15803d" }]}>
-              📞 {motorista.telefone}
-            </Text>
-          ) : null}
-          {motorista.placa ? (
-            <Text style={[mitem.badge, { backgroundColor: "#fefce8", color: "#854d0e" }]}>
-              🚛 {motorista.placa}
-            </Text>
-          ) : null}
+          {motorista.cnh
+            ? <Text style={[mitem.badge, { backgroundColor: "#eff6ff", color: "#1d4ed8" }]}>CNH {motorista.cnh.slice(-4).padStart(motorista.cnh.length, "•")}</Text>
+            : null}
+          {motorista.telefone
+            ? <Text style={[mitem.badge, { backgroundColor: "#f0fdf4", color: "#15803d" }]}>📞 {motorista.telefone}</Text>
+            : null}
+          {motorista.placa
+            ? <Text style={[mitem.badge, { backgroundColor: "#fefce8", color: "#854d0e" }]}>🚛 {motorista.placa}</Text>
+            : null}
           <View style={[mitem.statusChip, { backgroundColor: ativo ? "#dcfce7" : "#fee2e2" }]}>
-            {ativo
-              ? <UserCheck size={10} color="#15803d" />
-              : <UserX size={10} color="#dc2626" />}
+            {ativo ? <UserCheck size={10} color="#15803d" /> : <UserX size={10} color="#dc2626" />}
             <Text style={[mitem.statusText, { color: ativo ? "#15803d" : "#dc2626" }]}>
               {ativo ? "Ativo" : "Inativo"}
             </Text>
@@ -179,7 +300,6 @@ function MotoristaCadastroItem({
           PIN: {motorista.pin === "0000" ? "padrão (0000)" : "personalizado"}
         </Text>
       </View>
-      {/* Ações */}
       <View style={mitem.actions}>
         <Pressable style={[mitem.actionBtn, { borderColor: colors.border }]} onPress={onEdit} hitSlop={4}>
           <Pencil size={14} color={colors.primary} />
@@ -207,7 +327,7 @@ const mitem = StyleSheet.create({
   actionBtn: { width: 32, height: 32, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center" },
 });
 
-// ── PIN Modal Admin ───────────────────────────────────────────────────────
+// ── PIN Modal Admin ───────────────────────────────────────────────────────────
 function AdminPinModal({ visible, onConfirm, onClose }: { visible: boolean; onConfirm: (p: string) => void; onClose: () => void }) {
   const colors = useColors();
   const [value, setValue] = useState("");
@@ -253,9 +373,9 @@ const apm = StyleSheet.create({
   btnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════
 // TELA PRINCIPAL
-// ═══════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════
 export default function ConfiguracoesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -271,65 +391,44 @@ export default function ConfiguracoesScreen() {
 
   const { cauteias } = useCautela();
 
-  // Motorista modal state
+  // ── Motorista modal ──────────────────────────────────────────────────────
   const [motoModal, setMotoModal] = useState<{ open: boolean; motorista: Motorista | null }>({ open: false, motorista: null });
   const [adminPinModal, setAdminPinModal] = useState(false);
 
-  // Exportação
-  const [exportDataInicio, setExportDataInicio] = useState("");
-  const [exportDataFim, setExportDataFim] = useState("");
+  // ── Exportação ───────────────────────────────────────────────────────────
+  const [exportDataInicio, setExportDataInicio] = useState<Date | null>(null);
+  const [exportDataFim,    setExportDataFim]    = useState<Date | null>(null);
   const [exportStatus, setExportStatus] = useState<"tudo" | "concluida" | "cancelada">("tudo");
   const [exporting, setExporting] = useState(false);
 
-  // Auto-formata data enquanto digita: "01012024" → "01/01/2024"
-  function maskData(raw: string): string {
-    const digits = raw.replace(/\D/g, "").slice(0, 8);
-    if (digits.length <= 2) return digits;
-    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-  }
-
-  const ativos = settings.motoristas.filter((m) => m.ativo).length;
+  const ativos   = settings.motoristas.filter((m) => m.ativo).length;
   const inativos = settings.motoristas.length - ativos;
 
-  // Converte "DD/MM/AAAA" → Date ou null
-  function parseDataBR(str: string): Date | null {
-    const [d, m, y] = str.trim().split("/").map(Number);
-    if (!d || !m || !y || y < 2000) return null;
-    const dt = new Date(y, m - 1, d);
-    return isNaN(dt.getTime()) ? null : dt;
-  }
+  // Contagem em tempo real para o hint
+  const filteredCount = (() => {
+    let list = cauteias;
+    if (exportDataInicio) list = list.filter((c) => new Date(c.createdAt) >= exportDataInicio!);
+    if (exportDataFim) {
+      const fim = new Date(exportDataFim);
+      fim.setHours(23, 59, 59, 999);
+      list = list.filter((c) => new Date(c.createdAt) <= fim);
+    }
+    if (exportStatus !== "tudo") list = list.filter((c) => c.status === exportStatus);
+    return list.length;
+  })();
 
   async function handleExportar() {
-    const inicio = exportDataInicio ? parseDataBR(exportDataInicio) : null;
-    const fim    = exportDataFim    ? parseDataBR(exportDataFim)    : null;
-
-    if (exportDataInicio && !inicio) {
-      Alert.alert("Data inválida", "Use o formato DD/MM/AAAA para a data inicial.");
-      return;
-    }
-    if (exportDataFim && !fim) {
-      Alert.alert("Data inválida", "Use o formato DD/MM/AAAA para a data final.");
-      return;
-    }
-
     let filtradas = [...cauteias];
-
-    if (inicio) {
-      filtradas = filtradas.filter((c) => new Date(c.createdAt) >= inicio);
+    if (exportDataInicio) filtradas = filtradas.filter((c) => new Date(c.createdAt) >= exportDataInicio!);
+    if (exportDataFim) {
+      const fim = new Date(exportDataFim);
+      fim.setHours(23, 59, 59, 999);
+      filtradas = filtradas.filter((c) => new Date(c.createdAt) <= fim);
     }
-    if (fim) {
-      // inclui o dia final por completo (até 23:59:59)
-      const fimFinal = new Date(fim);
-      fimFinal.setHours(23, 59, 59, 999);
-      filtradas = filtradas.filter((c) => new Date(c.createdAt) <= fimFinal);
-    }
-    if (exportStatus !== "tudo") {
-      filtradas = filtradas.filter((c) => c.status === exportStatus);
-    }
+    if (exportStatus !== "tudo") filtradas = filtradas.filter((c) => c.status === exportStatus);
 
     setExporting(true);
-    await exportarXLSX(filtradas, { dataInicio: exportDataInicio, dataFim: exportDataFim, status: exportStatus });
+    await exportarXLSX(filtradas);
     setExporting(false);
   }
 
@@ -359,12 +458,83 @@ export default function ConfiguracoesScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* ══ EXPORTAR DADOS ══════════════════════════════════════════════ */}
+        <SectionCard
+          title="Exportar Dados"
+          icon={<FileSpreadsheet size={18} color={colors.primary} />}
+        >
+          {/* Datas com calendário */}
+          <View style={styles.dateRow}>
+            <DatePickerField
+              label="Data Inicial"
+              value={exportDataInicio}
+              onChange={setExportDataInicio}
+            />
+            <DatePickerField
+              label="Data Final"
+              value={exportDataFim}
+              onChange={setExportDataFim}
+            />
+          </View>
+
+          {/* Tipo de cautelas */}
+          <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+            TIPO DE CAUTELAS
+          </Text>
+          <View style={styles.statusPicker}>
+            {(
+              [
+                { value: "tudo",      label: "Todas"      },
+                { value: "concluida", label: "Concluídas" },
+                { value: "cancelada", label: "Canceladas" },
+              ] as { value: "tudo" | "concluida" | "cancelada"; label: string }[]
+            ).map(({ value, label }) => (
+              <Pressable
+                key={value}
+                style={[
+                  styles.statusChip,
+                  {
+                    borderColor: exportStatus === value ? colors.primary : colors.border,
+                    backgroundColor: exportStatus === value ? colors.primary + "12" : "transparent",
+                  },
+                ]}
+                onPress={() => setExportStatus(value)}
+              >
+                <Text style={[
+                  styles.statusChipText,
+                  { color: exportStatus === value ? colors.primary : colors.mutedForeground },
+                ]}>
+                  {label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {/* Contagem em tempo real */}
+          <Text style={[styles.exportHint, { color: colors.mutedForeground }]}>
+            {filteredCount === cauteias.length
+              ? `${cauteias.length} cautela${cauteias.length !== 1 ? "s" : ""} (todas)`
+              : `${filteredCount} de ${cauteias.length} cautela${cauteias.length !== 1 ? "s" : ""} no filtro`}
+          </Text>
+
+          {/* Botão */}
+          <Pressable
+            style={[styles.exportBtn, { backgroundColor: exporting ? colors.muted : "#1e3a8a" }]}
+            onPress={handleExportar}
+            disabled={exporting}
+          >
+            <Download size={16} color="#fff" />
+            <Text style={styles.exportBtnText}>
+              {exporting ? "Gerando arquivo…" : "Exportar para Excel (.xlsx)"}
+            </Text>
+          </Pressable>
+        </SectionCard>
+
         {/* ══ MOTORISTAS ══════════════════════════════════════════════════ */}
         <SectionCard
           title={`Motoristas  (${ativos} ativo${ativos !== 1 ? "s" : ""}${inativos ? `  ·  ${inativos} inativo${inativos !== 1 ? "s" : ""}` : ""})`}
           icon={<UserCheck size={18} color={colors.primary} />}
         >
-          {/* Botão adicionar */}
           <Pressable
             style={[styles.addMotoBtn, { borderColor: colors.primary, backgroundColor: colors.primary + "0E" }]}
             onPress={() => setMotoModal({ open: true, motorista: null })}
@@ -373,7 +543,6 @@ export default function ConfiguracoesScreen() {
             <Text style={[styles.addMotoBtnText, { color: colors.primary }]}>Cadastrar novo motorista</Text>
           </Pressable>
 
-          {/* Lista */}
           {settings.motoristas.length === 0 ? (
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
               Nenhum motorista cadastrado.
@@ -420,89 +589,6 @@ export default function ConfiguracoesScreen() {
           </Pressable>
         </SectionCard>
 
-        {/* ══ EXPORTAR DADOS ══════════════════════════════════════════════ */}
-        <SectionCard title="Exportar Dados" icon={<FileSpreadsheet size={18} color={colors.primary} />}>
-
-          {/* Linha de datas */}
-          <View style={styles.exportDateRow}>
-            <View style={styles.exportDateField}>
-              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>DATA INICIAL</Text>
-              <TextInput
-                style={[styles.dateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.input }]}
-                value={exportDataInicio}
-                onChangeText={(v) => setExportDataInicio(maskData(v))}
-                placeholder="DD/MM/AAAA"
-                placeholderTextColor={colors.mutedForeground}
-                keyboardType="numeric"
-                maxLength={10}
-              />
-            </View>
-            <View style={styles.exportDateField}>
-              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>DATA FINAL</Text>
-              <TextInput
-                style={[styles.dateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.input }]}
-                value={exportDataFim}
-                onChangeText={(v) => setExportDataFim(maskData(v))}
-                placeholder="DD/MM/AAAA"
-                placeholderTextColor={colors.mutedForeground}
-                keyboardType="numeric"
-                maxLength={10}
-              />
-            </View>
-          </View>
-
-          {/* Status selector */}
-          <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 4 }]}>TIPO DE CAUTELAS</Text>
-          <View style={styles.statusPicker}>
-            {(
-              [
-                { value: "tudo",      label: "Todas" },
-                { value: "concluida", label: "Concluídas" },
-                { value: "cancelada", label: "Canceladas" },
-              ] as { value: "tudo" | "concluida" | "cancelada"; label: string }[]
-            ).map(({ value, label }) => (
-              <Pressable
-                key={value}
-                style={[
-                  styles.statusChip,
-                  exportStatus === value && styles.statusChipActive,
-                  { borderColor: exportStatus === value ? colors.primary : colors.border },
-                ]}
-                onPress={() => setExportStatus(value)}
-              >
-                <Text style={[
-                  styles.statusChipText,
-                  { color: exportStatus === value ? colors.primary : colors.mutedForeground },
-                ]}>
-                  {label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          {/* Contagem rápida */}
-          <Text style={[styles.exportHint, { color: colors.mutedForeground }]}>
-            {cauteias.length} cautela{cauteias.length !== 1 ? "s" : ""} no total
-            {exportDataInicio || exportDataFim || exportStatus !== "tudo"
-              ? " — filtro aplicado no momento do download"
-              : ""}
-          </Text>
-
-          {/* Botão exportar */}
-          <Pressable
-            style={[styles.exportBtn, { backgroundColor: exporting ? colors.muted : "#1e3a8a" }]}
-            onPress={handleExportar}
-            disabled={exporting}
-          >
-            {exporting
-              ? <Download size={16} color="#fff" />
-              : <Download size={16} color="#fff" />}
-            <Text style={styles.exportBtnText}>
-              {exporting ? "Gerando arquivo…" : "Exportar para Excel (.xlsx)"}
-            </Text>
-          </Pressable>
-        </SectionCard>
-
         {/* ══ RESETAR ═════════════════════════════════════════════════════ */}
         <Pressable
           style={[styles.resetBtn, { borderColor: "#ef4444" }]}
@@ -516,7 +602,7 @@ export default function ConfiguracoesScreen() {
         </Pressable>
       </ScrollView>
 
-      {/* ── Modais ─────────────────────────────────────────────────────── */}
+      {/* ── Modais ──────────────────────────────────────────────────────── */}
       <MotoristaModal
         visible={motoModal.open}
         motorista={motoModal.motorista}
@@ -551,6 +637,29 @@ const styles = StyleSheet.create({
   headerSub: { fontSize: 11, fontFamily: "Inter_400Regular", color: "rgba(255,255,255,0.72)", marginTop: 3 },
   content: { padding: 16 },
 
+  // Exportação
+  dateRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
+  fieldLabel: {
+    fontSize: 11, fontFamily: "Inter_500Medium",
+    textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8,
+  },
+  statusPicker: { flexDirection: "row", gap: 8, marginBottom: 14 },
+  statusChip: {
+    flex: 1, paddingVertical: 10, borderRadius: 12,
+    borderWidth: 1.5, alignItems: "center",
+  },
+  statusChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  exportHint: {
+    fontSize: 11, fontFamily: "Inter_400Regular",
+    lineHeight: 16, marginBottom: 14,
+  },
+  exportBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 8, paddingVertical: 14, borderRadius: 14,
+  },
+  exportBtnText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 14 },
+
+  // Motoristas
   addMotoBtn: {
     flexDirection: "row", alignItems: "center", gap: 8,
     borderWidth: 1, borderRadius: 14, borderStyle: "dashed",
@@ -559,37 +668,13 @@ const styles = StyleSheet.create({
   addMotoBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   emptyText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", paddingVertical: 16 },
 
+  // Admin PIN
   pinHint: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18, marginBottom: 12 },
   adminPinBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
     gap: 8, paddingVertical: 13, borderRadius: 14,
   },
   adminPinText: { color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 14 },
-
-  fieldLabel: { fontSize: 11, fontFamily: "Inter_500Medium", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8 },
-
-  // Exportação
-  exportDateRow: { flexDirection: "row", gap: 10, marginBottom: 14 },
-  exportDateField: { flex: 1 },
-  dateInput: {
-    borderWidth: 1, borderRadius: 12,
-    paddingHorizontal: 12, paddingVertical: 11,
-    fontSize: 14, fontFamily: "Inter_500Medium",
-    textAlign: "center",
-  },
-  statusPicker: { flexDirection: "row", gap: 8, marginBottom: 14 },
-  statusChip: {
-    flex: 1, paddingVertical: 10, borderRadius: 12,
-    borderWidth: 1.5, alignItems: "center",
-  },
-  statusChipActive: {},
-  statusChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
-  exportHint: { fontSize: 11, fontFamily: "Inter_400Regular", lineHeight: 16, marginBottom: 14 },
-  exportBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 8, paddingVertical: 14, borderRadius: 14,
-  },
-  exportBtnText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 14 },
 
   resetBtn: { alignItems: "center", paddingVertical: 14, borderRadius: 14, borderWidth: 1, marginTop: 8 },
   resetText: { color: "#ef4444", fontFamily: "Inter_600SemiBold", fontSize: 13 },
