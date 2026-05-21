@@ -1,7 +1,7 @@
 import { Package, Save, Square } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Platform,
@@ -16,10 +16,22 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DateField } from "@/components/DateField";
 import { FormField } from "@/components/FormField";
 import { SectionHeader } from "@/components/SectionHeader";
+import { SuggestField } from "@/components/SuggestField";
 import { TimeField } from "@/components/TimeField";
 import type { TipoCabinete } from "@/contexts/CautelaContext";
 import { useCautela } from "@/contexts/CautelaContext";
 import { useColors } from "@/hooks/useColors";
+
+// Retorna data de hoje no formato dd/mm/aaaa
+function todayStr(): string {
+  const d = new Date();
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+}
+
+// Extrai valores únicos não-vazios de um array
+function unique(arr: (string | undefined)[]): string[] {
+  return [...new Set(arr.filter((s): s is string => !!s && s.trim() !== ""))];
+}
 
 export default function NovaCautelaScreen() {
   const colors = useColors();
@@ -28,6 +40,7 @@ export default function NovaCautelaScreen() {
   const topPad = Platform.OS === "web" ? 0 : insets.top;
   const botPad = Platform.OS === "web" ? 34 : 0;
 
+  // Número de controle gerado automaticamente
   const numeroControle = useMemo(() => {
     const year = new Date().getFullYear();
     const nums = cauteias
@@ -37,13 +50,24 @@ export default function NovaCautelaScreen() {
     return `${String(next).padStart(3, "0")}/${year}`;
   }, [cauteias]);
 
-  const [dataMov, setDataMov] = useState("");
+  // Sugestões extraídas do histórico de cautelas
+  const suggestions = useMemo(() => ({
+    transportador: unique(cauteias.map((c) => c.transportador)),
+    motorista: unique(cauteias.map((c) => c.motorista)),
+    armador: unique(cauteias.map((c) => c.armador)),
+    origemLocal: unique(cauteias.map((c) => c.origemLocal)),
+    destinoLocal: unique(cauteias.map((c) => c.destinoLocal)),
+  }), [cauteias]);
+
+  // ── estado do formulário ──
+  const [dataMov, setDataMov] = useState(todayStr);       // ← hoje por padrão
   const [origemLocal, setOrigemLocal] = useState("");
   const [booking, setBooking] = useState("");
-  const [origemData, setOrigemData] = useState("");
+  const [origemData, setOrigemData] = useState(todayStr); // ← hoje por padrão
   const [origemHorario, setOrigemHorario] = useState("");
   const [armador, setArmador] = useState("");
   const [pesoLiq, setPesoLiq] = useState("");
+  const [pesoLiqManual, setPesoLiqManual] = useState(false); // flag: usuário editou manualmente
   const [lacreArmador, setLacreArmador] = useState("");
   const [obs, setObs] = useState("");
   const [destinoLocal, setDestinoLocal] = useState("");
@@ -59,6 +83,18 @@ export default function NovaCautelaScreen() {
   const [motorista, setMotorista] = useState("");
   const [rg, setRg] = useState("");
   const [recebedor, setRecebedor] = useState("");
+
+  // ── Peso Líquido automático = Peso Bruto − Tara ──
+  useEffect(() => {
+    if (pesoLiqManual) return; // usuário escolheu valor manual — não sobrescreve
+    const pb = parseFloat(pesoBruto.replace(",", "."));
+    const t = parseFloat(tara.replace(",", "."));
+    if (!isNaN(pb) && !isNaN(t) && pb >= t) {
+      setPesoLiq(String((pb - t).toFixed(0)));
+    } else {
+      setPesoLiq("");
+    }
+  }, [pesoBruto, tara, pesoLiqManual]);
 
   function handleSalvar() {
     if (!numeroControle.trim()) {
@@ -97,8 +133,8 @@ export default function NovaCautelaScreen() {
   }
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}> 
-      <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: topPad + 16 }]}> 
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: topPad + 16 }]}>
         <View>
           <Text style={styles.headerTitle}>NOVA CAUTELA</Text>
           <Text style={styles.headerSub}>Movimentação de Contêiner</Text>
@@ -116,23 +152,26 @@ export default function NovaCautelaScreen() {
         bottomOffset={20}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+        {/* ── IDENTIFICAÇÃO ── */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <SectionHeader title="Identificação" />
           <View style={styles.ctrlRow}>
             <Text style={[styles.ctrlLabel, { color: colors.mutedForeground }]}>Nº DE CONTROLE</Text>
-            <Text style={[styles.ctrlValue, { backgroundColor: colors.muted, color: colors.primary }]}> 
+            <Text style={[styles.ctrlValue, { backgroundColor: colors.muted, color: colors.primary }]}>
               {numeroControle}
             </Text>
           </View>
           <DateField label="Data da Movimentação" value={dataMov} onChange={setDataMov} />
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+        {/* ── ORIGEM ── */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <SectionHeader title="Origem" subtitle="Dados do local de saída" />
-          <FormField
+          <SuggestField
             label="Local"
             value={origemLocal}
             onChangeText={setOrigemLocal}
+            suggestions={suggestions.origemLocal}
             placeholder="Local de origem"
           />
           <FormField
@@ -149,18 +188,12 @@ export default function NovaCautelaScreen() {
               <TimeField label="Horário" value={origemHorario} onChange={setOrigemHorario} />
             </View>
           </View>
-          <FormField
+          <SuggestField
             label="Armador"
             value={armador}
             onChangeText={setArmador}
+            suggestions={suggestions.armador}
             placeholder="Nome do armador"
-          />
-          <FormField
-            label="Peso Líq."
-            value={pesoLiq}
-            onChangeText={setPesoLiq}
-            placeholder="Kg"
-            keyboardType="numeric"
           />
           <FormField
             label="Lacre (Armador)"
@@ -179,12 +212,14 @@ export default function NovaCautelaScreen() {
           />
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+        {/* ── DESTINO ── */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <SectionHeader title="Destino" subtitle="Dados do local de chegada" />
-          <FormField
+          <SuggestField
             label="Local"
             value={destinoLocal}
             onChangeText={setDestinoLocal}
+            suggestions={suggestions.destinoLocal}
             placeholder="Local de destino"
           />
           <View style={styles.row}>
@@ -209,12 +244,14 @@ export default function NovaCautelaScreen() {
             placeholder="Número do contêiner"
             autoCapitalize="characters"
           />
+
+          {/* Pesos: Tara + Bruto → Líq. calculado automaticamente */}
           <View style={styles.row}>
             <View style={styles.half}>
               <FormField
                 label="Tara"
                 value={tara}
-                onChangeText={setTara}
+                onChangeText={(v) => { setTara(v); setPesoLiqManual(false); }}
                 placeholder="Kg"
                 keyboardType="numeric"
               />
@@ -223,18 +260,28 @@ export default function NovaCautelaScreen() {
               <FormField
                 label="Peso Bruto"
                 value={pesoBruto}
-                onChangeText={setPesoBruto}
+                onChangeText={(v) => { setPesoBruto(v); setPesoLiqManual(false); }}
                 placeholder="Kg"
                 keyboardType="numeric"
               />
             </View>
           </View>
+
+          <FormField
+            label={pesoLiqManual ? "Peso Líq." : "Peso Líq. (calculado automaticamente)"}
+            value={pesoLiq}
+            onChangeText={(v) => { setPesoLiqManual(true); setPesoLiq(v); }}
+            placeholder="Kg  ←  preenchido ao informar Tara e Peso Bruto"
+            keyboardType="numeric"
+          />
+
           <FormField
             label="Nota(s) Fiscal(is)"
             value={notasFiscais}
             onChangeText={setNotasFiscais}
             placeholder="Números das NFs"
           />
+
           <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>TIPO DE CABINETE</Text>
           <View style={styles.toggleRow}>
             {(["cheio", "vazio"] as TipoCabinete[]).map((tipo) => (
@@ -266,20 +313,23 @@ export default function NovaCautelaScreen() {
           </View>
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+        {/* ── TRANSPORTADOR ── */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <SectionHeader title="Transportador" subtitle="Responsáveis pela movimentação" />
-          <FormField
+          <SuggestField
             label="Transportador"
             value={transportador}
             onChangeText={setTransportador}
+            suggestions={suggestions.transportador}
             placeholder="Nome da transportadora"
           />
           <View style={styles.row}>
             <View style={styles.half}>
-              <FormField
+              <SuggestField
                 label="Motorista"
                 value={motorista}
                 onChangeText={setMotorista}
+                suggestions={suggestions.motorista}
                 placeholder="Nome"
               />
             </View>
@@ -358,7 +408,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     padding: 18,
-    overflow: "hidden",
     shadowColor: "rgba(15,23,42,0.06)",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.08,
