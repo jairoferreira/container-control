@@ -252,47 +252,56 @@ function MultiSelectDropdown({
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable style={msd.overlay} onPress={() => setOpen(false)}>
-          {/* stopPropagation no painel para não fechar ao clicar dentro */}
           <View
             style={[msd.panel, { backgroundColor: colors.card, borderColor: colors.border }]}
             onStartShouldSetResponder={() => true}
           >
+            {/* Título fixo */}
             <Text style={[msd.panelTitle, { color: colors.foreground }]}>{label}</Text>
 
-            {/* "Todos" */}
-            <Pressable style={[msd.option, { borderBottomColor: colors.border }]} onPress={() => onChange([])}>
-              <View style={[msd.checkbox, {
-                borderColor: isAll ? colors.primary : colors.border,
-                backgroundColor: isAll ? colors.primary : "transparent",
-              }]}>
-                {isAll && <Check size={11} color="#fff" strokeWidth={3} />}
-              </View>
-              <Text style={[msd.optionText, { color: colors.foreground, fontFamily: isAll ? "Inter_700Bold" : "Inter_400Regular" }]}>
-                {allLabel}
-              </Text>
-            </Pressable>
+            {/* Lista com scroll */}
+            <ScrollView
+              style={msd.listScroll}
+              showsVerticalScrollIndicator={true}
+              bounces={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* "Todos" */}
+              <Pressable style={[msd.option, { borderBottomColor: colors.border }]} onPress={() => onChange([])}>
+                <View style={[msd.checkbox, {
+                  borderColor: isAll ? colors.primary : colors.border,
+                  backgroundColor: isAll ? colors.primary : "transparent",
+                }]}>
+                  {isAll && <Check size={10} color="#fff" strokeWidth={3} />}
+                </View>
+                <Text style={[msd.optionText, { color: colors.foreground, fontFamily: isAll ? "Inter_700Bold" : "Inter_400Regular" }]}>
+                  {allLabel}
+                </Text>
+              </Pressable>
 
-            {options.map((opt) => {
-              const checked = selected.includes(opt.value);
-              return (
-                <Pressable
-                  key={opt.value}
-                  style={[msd.option, { borderBottomColor: colors.border }]}
-                  onPress={() => toggle(opt.value)}
-                >
-                  <View style={[msd.checkbox, {
-                    borderColor: checked ? colors.primary : colors.border,
-                    backgroundColor: checked ? colors.primary : "transparent",
-                  }]}>
-                    {checked && <Check size={11} color="#fff" strokeWidth={3} />}
-                  </View>
-                  <Text style={[msd.optionText, { color: colors.foreground, fontFamily: checked ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+              {options.map((opt) => {
+                const checked = selected.includes(opt.value);
+                return (
+                  <Pressable
+                    key={opt.value}
+                    style={[msd.option, { borderBottomColor: colors.border }]}
+                    onPress={() => toggle(opt.value)}
+                  >
+                    <View style={[msd.checkbox, {
+                      borderColor: checked ? colors.primary : colors.border,
+                      backgroundColor: checked ? colors.primary : "transparent",
+                    }]}>
+                      {checked && <Check size={10} color="#fff" strokeWidth={3} />}
+                    </View>
+                    <Text style={[msd.optionText, { color: colors.foreground, fontFamily: checked ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
 
+            {/* Botão fixo na parte inferior */}
             <Pressable
               style={[msd.confirmBtn, { backgroundColor: colors.primary }]}
               onPress={() => setOpen(false)}
@@ -322,24 +331,26 @@ const msd = StyleSheet.create({
     justifyContent: "center", alignItems: "center", padding: 24,
   },
   panel: {
-    width: "100%", maxWidth: 360,
-    borderRadius: 20, borderWidth: 1, padding: 20,
+    width: "100%", maxWidth: 360, maxHeight: "75%",
+    borderRadius: 20, borderWidth: 1,
+    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 0,
   },
-  panelTitle: { fontSize: 15, fontFamily: "Inter_700Bold", marginBottom: 14 },
+  panelTitle: { fontSize: 14, fontFamily: "Inter_700Bold", marginBottom: 10 },
+  listScroll: { flexGrow: 0 },
   option: {
-    flexDirection: "row", alignItems: "center", gap: 14,
-    paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row", alignItems: "center", gap: 12,
+    paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth,
   },
   checkbox: {
-    width: 22, height: 22, borderRadius: 6, borderWidth: 1.5,
+    width: 19, height: 19, borderRadius: 5, borderWidth: 1.5,
     alignItems: "center", justifyContent: "center", flexShrink: 0,
   },
-  optionText: { fontSize: 14, flex: 1 },
+  optionText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1 },
   confirmBtn: {
-    marginTop: 18, paddingVertical: 13,
-    borderRadius: 14, alignItems: "center",
+    marginTop: 12, marginBottom: 16, paddingVertical: 12,
+    borderRadius: 12, alignItems: "center",
   },
-  confirmText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 14 },
+  confirmText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 13 },
 });
 
 // ── Lista editável simples (placas) ───────────────────────────────────────────
