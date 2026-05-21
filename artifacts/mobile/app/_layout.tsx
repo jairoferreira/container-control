@@ -16,6 +16,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LoginScreen } from "@/components/LoginScreen";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { ActivityIndicator, View } from "react-native";
 import { CautelaProvider } from "@/contexts/CautelaContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 
@@ -35,9 +36,20 @@ function RootLayoutNav() {
   );
 }
 
-/** Mostra LoginScreen enquanto não autenticado, app normal após login */
+/** Mostra LoginScreen enquanto não autenticado, app normal após login.
+ *  Enquanto `loading` é true (restaurando sessão do AsyncStorage) exibe
+ *  um spinner para evitar flash de tela de login. */
 function AppGate() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#0f172a", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#60a5fa" />
+      </View>
+    );
+  }
+
   if (!user) return <LoginScreen />;
   return <RootLayoutNav />;
 }
