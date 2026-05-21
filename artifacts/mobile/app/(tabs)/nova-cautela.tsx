@@ -1,7 +1,7 @@
-import { Package, Save, Square } from "lucide-react-native";
+import { ArrowDown, ArrowUp, Save } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   Platform,
@@ -15,24 +15,207 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DateField } from "@/components/DateField";
 import { FormField } from "@/components/FormField";
+import { OptionPicker } from "@/components/OptionPicker";
 import { SectionHeader } from "@/components/SectionHeader";
+import { SelectField } from "@/components/SelectField";
 import { SuggestField } from "@/components/SuggestField";
-import { TimeField } from "@/components/TimeField";
-import type { TipoCabinete } from "@/contexts/CautelaContext";
+import type {
+  ModeloConteiner,
+  SaidaChegada,
+  SituacaoCarreta,
+  TipoCarreta,
+  TipoVeiculo,
+} from "@/contexts/CautelaContext";
 import { useCautela } from "@/contexts/CautelaContext";
 import { useColors } from "@/hooks/useColors";
 
-// Retorna data de hoje no formato dd/mm/aaaa
+// ── Listas fixas vindas do Google Form do gestor ──────────────────────────
+const MOTORISTAS = [
+  "ALEKSANDRO FERREIRA DE OLIVEIRA",
+  "AMIRALDO BRANCHES OLIVEIRA",
+  "ARGEMIRO SAMPAIO XAVIER",
+  "CLAUDEMIR SANTOS DA SILVA",
+  "DEMACI DIAS DOS SANTOS",
+  "EDILSON DE LUCENA CORREIA",
+  "FRANCISCO DAS CHAGAS NEVES",
+  "JOSE EVERARDO NOBRE",
+  "JOSE HUMBERTO DE OLIVEIRA",
+  "JOSÉ UBIRATAN RODRIGUES",
+  "JÚLIO CESAR SILVA OLIVEIRA",
+  "MAURÍCIO MIRANDA DA SILVA",
+  "PAULO ALVES SILVA",
+  "PAULO LONGEN",
+  "PEDRO DA SILVA DAMASCENO",
+  "RONALD DOS ANJOS SOUZA",
+  "SANDRO LUIZ DA SILVA OLIVEIRA",
+];
+
+const PLACAS_CAVALO = [
+  "FYS1140", "IIT5F54", "JXG4463", "JXM7918", "JXO7053",
+  "NOJ2358", "NOJ4403", "NOP0408", "NOU4153", "NOW3D40",
+  "NOX0579", "OAJ1855", "OAM1512", "OAM1522", "OCD0744",
+  "PHF6227", "PHU3G94", "PHY4A96",
+];
+
+const OPERACOES = ["MANAUS", "BOA VISTA", "MADEIRA", "ITACOATIARA", "IRANDUBA", "MANACAPURU", "Outro"];
+const TIPOS_VEICULO: TipoVeiculo[] = ["CAVALINHO ATRELADO", "SÓ O CAVALINHO", "CAMINHÃO", "CARRO PEQUENO"];
+const MODELOS_CONTEINER: ModeloConteiner[] = ["20 DC", "20 TK", "40 FR", "40 HC"];
+const CLIENTES_COMUNS = ["ALIANÇA", "GERDAU", "LEMOS", "MERCOSUL", "ROYAL MAX", "C R LUBRIFICANTES"];
+
+// ── Helpers ───────────────────────────────────────────────────────────────
 function todayStr(): string {
   const d = new Date();
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
-// Extrai valores únicos não-vazios de um array
 function unique(arr: (string | undefined)[]): string[] {
   return [...new Set(arr.filter((s): s is string => !!s && s.trim() !== ""))];
 }
 
+// ── Componente de toggle grande (Saindo / Chegando) ───────────────────────
+function DirectionToggle({
+  value,
+  onChange,
+}: {
+  value: SaidaChegada;
+  onChange: (v: SaidaChegada) => void;
+}) {
+  const colors = useColors();
+  return (
+    <View style={dirStyles.wrap}>
+      {(["saindo", "chegando"] as SaidaChegada[]).map((opt) => {
+        const active = value === opt;
+        const isSaindo = opt === "saindo";
+        return (
+          <TouchableOpacity
+            key={opt}
+            style={[
+              dirStyles.btn,
+              {
+                backgroundColor: active
+                  ? isSaindo ? "#1e3a8a" : "#15803d"
+                  : colors.muted,
+                borderColor: active
+                  ? isSaindo ? "#1e3a8a" : "#15803d"
+                  : colors.border,
+              },
+            ]}
+            onPress={() => onChange(opt)}
+            activeOpacity={0.85}
+          >
+            {isSaindo
+              ? <ArrowUp size={22} color={active ? "#fff" : colors.mutedForeground} />
+              : <ArrowDown size={22} color={active ? "#fff" : colors.mutedForeground} />}
+            <Text
+              style={[
+                dirStyles.label,
+                { color: active ? "#fff" : colors.mutedForeground },
+              ]}
+            >
+              {opt === "saindo" ? "SAINDO" : "CHEGANDO"}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
+const dirStyles = StyleSheet.create({
+  wrap: { flexDirection: "row", gap: 12, marginBottom: 18 },
+  btn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 18,
+    borderRadius: 20,
+    borderWidth: 2,
+  },
+  label: {
+    fontSize: 17,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.5,
+  },
+});
+
+// ── Componente de toggle binário (CARREGADO/VAZIO ou CONTÊINER/CARRETA ABERTA) ──
+function BinaryToggle({
+  label,
+  options,
+  value,
+  onChange,
+  colors: colorsProp,
+}: {
+  label: string;
+  options: [string, string];
+  value: string;
+  onChange: (v: string) => void;
+  colors: ReturnType<typeof useColors>;
+}) {
+  return (
+    <View style={binStyles.wrap}>
+      <Text style={[binStyles.label, { color: colorsProp.mutedForeground }]}>
+        {label.toUpperCase()}
+      </Text>
+      <View style={binStyles.row}>
+        {options.map((opt) => {
+          const active = value === opt;
+          return (
+            <TouchableOpacity
+              key={opt}
+              style={[
+                binStyles.btn,
+                {
+                  backgroundColor: active ? colorsProp.primary : colorsProp.muted,
+                  borderColor: active ? colorsProp.primary : colorsProp.border,
+                },
+              ]}
+              onPress={() => onChange(opt)}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[binStyles.btnText, { color: active ? "#fff" : colorsProp.mutedForeground }]}
+              >
+                {opt}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const binStyles = StyleSheet.create({
+  wrap: { marginBottom: 14 },
+  label: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    marginBottom: 8,
+    textTransform: "uppercase",
+    letterSpacing: 0.35,
+  },
+  row: { flexDirection: "row", gap: 10 },
+  btn: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1.5,
+  },
+  btnText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    textAlign: "center",
+  },
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TELA PRINCIPAL
+// ═══════════════════════════════════════════════════════════════════════════
 export default function NovaCautelaScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -40,7 +223,7 @@ export default function NovaCautelaScreen() {
   const topPad = Platform.OS === "web" ? 0 : insets.top;
   const botPad = Platform.OS === "web" ? 34 : 0;
 
-  // Número de controle gerado automaticamente
+  // Número de controle automático
   const numeroControle = useMemo(() => {
     const year = new Date().getFullYear();
     const nums = cauteias
@@ -50,96 +233,106 @@ export default function NovaCautelaScreen() {
     return `${String(next).padStart(3, "0")}/${year}`;
   }, [cauteias]);
 
-  // Sugestões extraídas do histórico de cautelas
+  // Sugestões de campos de texto livre (história)
   const suggestions = useMemo(() => ({
-    transportador: unique(cauteias.map((c) => c.transportador)),
-    motorista: unique(cauteias.map((c) => c.motorista)),
-    armador: unique(cauteias.map((c) => c.armador)),
-    origemLocal: unique(cauteias.map((c) => c.origemLocal)),
-    destinoLocal: unique(cauteias.map((c) => c.destinoLocal)),
+    origem: unique(cauteias.map((c) => c.origem)),
+    destino: unique(cauteias.map((c) => c.destino)),
+    cliente: [...new Set([...CLIENTES_COMUNS, ...unique(cauteias.map((c) => c.cliente))])],
+    clienteTraseira: [...new Set([...CLIENTES_COMUNS, ...unique(cauteias.map((c) => c.clienteTraseira))])],
+    placaCarreta: unique(cauteias.map((c) => c.placaCarreta)),
+    placaCarretaTraseira: unique(cauteias.map((c) => c.placaCarretaTraseira)),
   }), [cauteias]);
 
-  // ── estado do formulário ──
-  const [dataMov, setDataMov] = useState(todayStr);       // ← hoje por padrão
-  const [origemLocal, setOrigemLocal] = useState("");
-  const [booking, setBooking] = useState("");
-  const [origemData, setOrigemData] = useState(todayStr); // ← hoje por padrão
-  const [origemHorario, setOrigemHorario] = useState("");
-  const [armador, setArmador] = useState("");
-  const [pesoLiq, setPesoLiq] = useState("");
-  const [pesoLiqManual, setPesoLiqManual] = useState(false); // flag: usuário editou manualmente
-  const [lacreArmador, setLacreArmador] = useState("");
-  const [obs, setObs] = useState("");
-  const [destinoLocal, setDestinoLocal] = useState("");
-  const [destinoData, setDestinoData] = useState("");
-  const [destinoHorario, setDestinoHorario] = useState("");
-  const [placaCavalo, setPlacaCavalo] = useState("");
-  const [conteiner, setConteiner] = useState("");
-  const [tara, setTara] = useState("");
-  const [notasFiscais, setNotasFiscais] = useState("");
-  const [pesoBruto, setPesoBruto] = useState("");
-  const [tipoCabinete, setTipoCabinete] = useState<TipoCabinete>("cheio");
-  const [transportador, setTransportador] = useState("");
-  const [motorista, setMotorista] = useState("");
-  const [rg, setRg] = useState("");
-  const [recebedor, setRecebedor] = useState("");
+  // ── Estado do formulário ────────────────────────────────────────────────
+  const [dataMov, setDataMov] = useState(todayStr);
+  const [saidaChegada, setSaidaChegada] = useState<SaidaChegada>("saindo");
 
-  // ── Peso Líquido automático = Peso Bruto − Tara ──
-  useEffect(() => {
-    if (pesoLiqManual) return; // usuário escolheu valor manual — não sobrescreve
-    const pb = parseFloat(pesoBruto.replace(",", "."));
-    const t = parseFloat(tara.replace(",", "."));
-    if (!isNaN(pb) && !isNaN(t) && pb >= t) {
-      setPesoLiq(String((pb - t).toFixed(0)));
-    } else {
-      setPesoLiq("");
-    }
-  }, [pesoBruto, tara, pesoLiqManual]);
+  // Rota
+  const [origem, setOrigem] = useState("");
+  const [destino, setDestino] = useState("");
+  const [operacao, setOperacao] = useState("");
+
+  // Veículo
+  const [motorista, setMotorista] = useState("");
+  const [placaCavalo, setPlacaCavalo] = useState("");
+  const [odometro, setOdometro] = useState("");
+  const [tipo, setTipo] = useState<TipoVeiculo>("");
+
+  // Carreta Dianteira
+  const [placaCarreta, setPlacaCarreta] = useState("");
+  const [situacao, setSituacao] = useState<SituacaoCarreta>("");
+  const [cliente, setCliente] = useState("");
+  const [tipoCarreta, setTipoCarreta] = useState<TipoCarreta>("");
+  const [conteiner, setConteiner] = useState("");
+  const [modeloConteiner, setModeloConteiner] = useState<ModeloConteiner>("");
+  const [lacre, setLacre] = useState("");
+
+  // Bitrem
+  const [temBitrem, setTemBitrem] = useState(false);
+  const [placaCarretaTraseira, setPlacaCarretaTraseira] = useState("");
+  const [situacaoTraseira, setSituacaoTraseira] = useState<SituacaoCarreta>("");
+  const [clienteTraseira, setClienteTraseira] = useState("");
+  const [tipoCarretaTraseira, setTipoCarretaTraseira] = useState<TipoCarreta>("");
+  const [conteinerTraseiro, setConteinerTraseiro] = useState("");
+  const [modeloConteinerTraseiro, setModeloConteinerTraseiro] = useState<ModeloConteiner>("");
+  const [lacreTraseiro, setLacreTraseiro] = useState("");
+
+  // Observações
+  const [obs, setObs] = useState("");
 
   function handleSalvar() {
-    if (!numeroControle.trim()) {
-      Alert.alert("Atenção", "Informe o Nº de Controle.");
+    if (!motorista.trim()) {
+      Alert.alert("Atenção", "Selecione o Motorista.");
+      return;
+    }
+    if (!placaCavalo.trim()) {
+      Alert.alert("Atenção", "Selecione a Placa do Cavalo.");
       return;
     }
 
     addCautela({
       numeroControle,
       dataMov,
-      origemLocal,
-      booking,
-      origemData,
-      origemHorario,
-      armador,
-      pesoLiq,
-      lacreArmador,
-      obs,
-      destinoLocal,
-      destinoData,
-      destinoHorario,
-      placaCavalo,
-      conteiner,
-      tara,
-      notasFiscais,
-      pesoBruto,
-      tipoCabinete,
-      transportador,
+      saidaChegada,
+      origem,
+      destino,
+      operacao,
       motorista,
-      rg,
-      recebedor,
+      placaCavalo,
+      odometro,
+      tipo,
+      placaCarreta,
+      situacao,
+      cliente,
+      tipoCarreta,
+      conteiner,
+      modeloConteiner,
+      lacre,
+      temBitrem,
+      placaCarretaTraseira,
+      situacaoTraseira,
+      clienteTraseira,
+      tipoCarretaTraseira,
+      conteinerTraseiro,
+      modeloConteinerTraseiro,
+      lacreTraseiro,
+      obs,
     });
 
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (Platform.OS !== "web") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
     router.replace("/(tabs)/historico");
   }
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
+      {/* ── Cabeçalho ── */}
       <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: topPad + 16 }]}>
         <View>
           <Text style={styles.headerTitle}>NOVA CAUTELA</Text>
-          <Text style={styles.headerSub}>Movimentação de Contêiner</Text>
+          <Text style={styles.headerSub}>Nº {numeroControle} · {dataMov}</Text>
         </View>
-
         <Pressable style={styles.saveBtn} onPress={handleSalvar}>
           <Save size={18} color="#fff" />
           <Text style={styles.saveBtnText}>Salvar</Text>
@@ -152,205 +345,257 @@ export default function NovaCautelaScreen() {
         bottomOffset={20}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ── IDENTIFICAÇÃO ── */}
+        {/* ══ SAINDO / CHEGANDO ═══════════════════════════════════════════ */}
+        <DirectionToggle value={saidaChegada} onChange={setSaidaChegada} />
+
+        {/* ══ IDENTIFICAÇÃO ═══════════════════════════════════════════════ */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <SectionHeader title="Identificação" />
-          <View style={styles.ctrlRow}>
-            <Text style={[styles.ctrlLabel, { color: colors.mutedForeground }]}>Nº DE CONTROLE</Text>
-            <Text style={[styles.ctrlValue, { backgroundColor: colors.muted, color: colors.primary }]}>
-              {numeroControle}
-            </Text>
-          </View>
           <DateField label="Data da Movimentação" value={dataMov} onChange={setDataMov} />
         </View>
 
-        {/* ── ORIGEM ── */}
+        {/* ══ ROTA ════════════════════════════════════════════════════════ */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SectionHeader title="Origem" subtitle="Dados do local de saída" />
+          <SectionHeader title="Rota" subtitle="De onde sai e para onde vai" />
           <SuggestField
-            label="Local"
-            value={origemLocal}
-            onChangeText={setOrigemLocal}
-            suggestions={suggestions.origemLocal}
-            placeholder="Local de origem"
+            label="Origem"
+            value={origem}
+            onChangeText={setOrigem}
+            suggestions={suggestions.origem}
+            placeholder="Local de saída"
+            autoCapitalize="words"
+          />
+          <SuggestField
+            label="Destino"
+            value={destino}
+            onChangeText={setDestino}
+            suggestions={suggestions.destino}
+            placeholder="Local de chegada"
+            autoCapitalize="words"
+          />
+          <OptionPicker
+            label="Operação"
+            options={OPERACOES}
+            value={operacao}
+            onChange={setOperacao}
+          />
+        </View>
+
+        {/* ══ VEÍCULO ═════════════════════════════════════════════════════ */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <SectionHeader title="Veículo" subtitle="Motorista e trator" />
+          <SelectField
+            label="Motorista"
+            options={MOTORISTAS}
+            value={motorista}
+            onChange={setMotorista}
+            placeholder="Selecionar motorista…"
+            required
+          />
+          <SelectField
+            label="Placa do Cavalo"
+            options={PLACAS_CAVALO}
+            value={placaCavalo}
+            onChange={setPlacaCavalo}
+            placeholder="Selecionar placa…"
+            required
           />
           <FormField
-            label="Booking"
-            value={booking}
-            onChangeText={setBooking}
-            placeholder="Número do booking"
+            label="Odômetro"
+            value={odometro}
+            onChangeText={setOdometro}
+            placeholder="Quilometragem atual"
+            keyboardType="numeric"
           />
-          <View style={styles.row}>
-            <View style={styles.half}>
-              <DateField label="Data" value={origemData} onChange={setOrigemData} />
+          <OptionPicker
+            label="Tipo de Veículo"
+            options={TIPOS_VEICULO}
+            value={tipo}
+            onChange={(v) => setTipo(v as TipoVeiculo)}
+            columns={2}
+          />
+        </View>
+
+        {/* ══ CARRETA DIANTEIRA ════════════════════════════════════════════ */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <SectionHeader title="Carreta Dianteira" subtitle="Dados da carreta principal" />
+          <SuggestField
+            label="Placa da Carreta"
+            value={placaCarreta}
+            onChangeText={setPlacaCarreta}
+            suggestions={suggestions.placaCarreta}
+            placeholder="Placa da carreta"
+            autoCapitalize="characters"
+          />
+          <BinaryToggle
+            label="Situação"
+            options={["CARREGADO", "VAZIO"]}
+            value={situacao}
+            onChange={(v) => setSituacao(v as SituacaoCarreta)}
+            colors={colors}
+          />
+          <SuggestField
+            label="Cliente"
+            value={cliente}
+            onChangeText={setCliente}
+            suggestions={suggestions.cliente}
+            placeholder="Nome do cliente"
+            autoCapitalize="words"
+          />
+          <BinaryToggle
+            label="Carreta Aberta ou Contêiner?"
+            options={["CARRETA ABERTA", "CONTÊINER"]}
+            value={tipoCarreta}
+            onChange={(v) => setTipoCarreta(v as TipoCarreta)}
+            colors={colors}
+          />
+
+          {/* Campos de contêiner — só aparecem se selecionou CONTÊINER */}
+          {tipoCarreta === "CONTÊINER" && (
+            <View style={styles.conditional}>
+              <FormField
+                label="Número do Contêiner"
+                value={conteiner}
+                onChangeText={setConteiner}
+                placeholder="Ex: MRSU4044019"
+                autoCapitalize="characters"
+              />
+              <OptionPicker
+                label="Modelo do Contêiner"
+                options={MODELOS_CONTEINER}
+                value={modeloConteiner}
+                onChange={(v) => setModeloConteiner(v as ModeloConteiner)}
+              />
+              <FormField
+                label="Lacre"
+                value={lacre}
+                onChangeText={setLacre}
+                placeholder="Número do lacre ou 'Sem lacre'"
+                autoCapitalize="characters"
+              />
             </View>
-            <View style={styles.half}>
-              <TimeField label="Horário" value={origemHorario} onChange={setOrigemHorario} />
-            </View>
+          )}
+        </View>
+
+        {/* ══ BITREM ══════════════════════════════════════════════════════ */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <SectionHeader title="Bitrem / Carreta Traseira" />
+
+          {/* Toggle SIM / NÃO */}
+          <View style={styles.bitremToggleRow}>
+            {["NÃO", "SIM"].map((opt) => {
+              const active = (opt === "SIM") === temBitrem;
+              return (
+                <TouchableOpacity
+                  key={opt}
+                  style={[
+                    styles.bitremBtn,
+                    {
+                      backgroundColor: active
+                        ? opt === "SIM" ? "#1e3a8a" : colors.muted
+                        : colors.muted,
+                      borderColor: active
+                        ? opt === "SIM" ? "#1e3a8a" : colors.border
+                        : colors.border,
+                    },
+                  ]}
+                  onPress={() => setTemBitrem(opt === "SIM")}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.bitremBtnText,
+                      {
+                        color: active
+                          ? opt === "SIM" ? "#fff" : colors.foreground
+                          : colors.mutedForeground,
+                      },
+                    ]}
+                  >
+                    {opt === "SIM" ? "✓ Inserir dados de bitrem" : "✗ Sem bitrem"}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-          <SuggestField
-            label="Armador"
-            value={armador}
-            onChangeText={setArmador}
-            suggestions={suggestions.armador}
-            placeholder="Nome do armador"
-          />
+
+          {/* Campos do bitrem — só aparecem se SIM */}
+          {temBitrem && (
+            <View style={styles.conditional}>
+              <SuggestField
+                label="Placa da Carreta Traseira"
+                value={placaCarretaTraseira}
+                onChangeText={setPlacaCarretaTraseira}
+                suggestions={suggestions.placaCarretaTraseira}
+                placeholder="Placa da traseira"
+                autoCapitalize="characters"
+              />
+              <BinaryToggle
+                label="Situação (Traseira)"
+                options={["CARREGADO", "VAZIO"]}
+                value={situacaoTraseira}
+                onChange={(v) => setSituacaoTraseira(v as SituacaoCarreta)}
+                colors={colors}
+              />
+              <SuggestField
+                label="Cliente (Traseira)"
+                value={clienteTraseira}
+                onChangeText={setClienteTraseira}
+                suggestions={suggestions.clienteTraseira}
+                placeholder="Nome do cliente"
+                autoCapitalize="words"
+              />
+              <BinaryToggle
+                label="Carreta Aberta ou Contêiner? (Traseira)"
+                options={["CARRETA ABERTA", "CONTÊINER"]}
+                value={tipoCarretaTraseira}
+                onChange={(v) => setTipoCarretaTraseira(v as TipoCarreta)}
+                colors={colors}
+              />
+
+              {tipoCarretaTraseira === "CONTÊINER" && (
+                <>
+                  <FormField
+                    label="Contêiner da Traseira"
+                    value={conteinerTraseiro}
+                    onChangeText={setConteinerTraseiro}
+                    placeholder="Ex: MRSU4044019"
+                    autoCapitalize="characters"
+                  />
+                  <OptionPicker
+                    label="Modelo do Contêiner Traseira"
+                    options={MODELOS_CONTEINER}
+                    value={modeloConteinerTraseiro}
+                    onChange={(v) => setModeloConteinerTraseiro(v as ModeloConteiner)}
+                  />
+                  <FormField
+                    label="Lacre (Traseira)"
+                    value={lacreTraseiro}
+                    onChangeText={setLacreTraseiro}
+                    placeholder="Número do lacre ou 'Sem lacre'"
+                    autoCapitalize="characters"
+                  />
+                </>
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* ══ OBSERVAÇÕES ══════════════════════════════════════════════════ */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <SectionHeader title="Observações" />
           <FormField
-            label="Lacre (Armador)"
-            value={lacreArmador}
-            onChangeText={setLacreArmador}
-            placeholder="Número do lacre"
-          />
-          <FormField
-            label="OBS"
+            label="Observações"
             value={obs}
             onChangeText={setObs}
-            placeholder="Observações adicionais"
+            placeholder="Informações adicionais…"
             multiline
             numberOfLines={3}
             style={{ height: 80, textAlignVertical: "top", paddingTop: 10 }}
           />
         </View>
 
-        {/* ── DESTINO ── */}
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SectionHeader title="Destino" subtitle="Dados do local de chegada" />
-          <SuggestField
-            label="Local"
-            value={destinoLocal}
-            onChangeText={setDestinoLocal}
-            suggestions={suggestions.destinoLocal}
-            placeholder="Local de destino"
-          />
-          <View style={styles.row}>
-            <View style={styles.half}>
-              <DateField label="Data" value={destinoData} onChange={setDestinoData} />
-            </View>
-            <View style={styles.half}>
-              <TimeField label="Horário" value={destinoHorario} onChange={setDestinoHorario} />
-            </View>
-          </View>
-          <FormField
-            label="Placa (Cavalo)"
-            value={placaCavalo}
-            onChangeText={setPlacaCavalo}
-            placeholder="AAA-0000"
-            autoCapitalize="characters"
-          />
-          <FormField
-            label="Contêiner"
-            value={conteiner}
-            onChangeText={setConteiner}
-            placeholder="Número do contêiner"
-            autoCapitalize="characters"
-          />
-
-          {/* Pesos: Tara + Bruto → Líq. calculado automaticamente */}
-          <View style={styles.row}>
-            <View style={styles.half}>
-              <FormField
-                label="Tara"
-                value={tara}
-                onChangeText={(v) => { setTara(v); setPesoLiqManual(false); }}
-                placeholder="Kg"
-                keyboardType="numeric"
-              />
-            </View>
-            <View style={styles.half}>
-              <FormField
-                label="Peso Bruto"
-                value={pesoBruto}
-                onChangeText={(v) => { setPesoBruto(v); setPesoLiqManual(false); }}
-                placeholder="Kg"
-                keyboardType="numeric"
-              />
-            </View>
-          </View>
-
-          <FormField
-            label={pesoLiqManual ? "Peso Líq." : "Peso Líq. (calculado automaticamente)"}
-            value={pesoLiq}
-            onChangeText={(v) => { setPesoLiqManual(true); setPesoLiq(v); }}
-            placeholder="Kg  ←  preenchido ao informar Tara e Peso Bruto"
-            keyboardType="numeric"
-          />
-
-          <FormField
-            label="Nota(s) Fiscal(is)"
-            value={notasFiscais}
-            onChangeText={setNotasFiscais}
-            placeholder="Números das NFs"
-          />
-
-          <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>TIPO DE CABINETE</Text>
-          <View style={styles.toggleRow}>
-            {(["cheio", "vazio"] as TipoCabinete[]).map((tipo) => (
-              <TouchableOpacity
-                key={tipo}
-                style={[
-                  styles.toggleBtn,
-                  {
-                    backgroundColor: tipoCabinete === tipo ? colors.primary : colors.muted,
-                    borderColor: tipoCabinete === tipo ? colors.primary : colors.border,
-                  },
-                ]}
-                onPress={() => setTipoCabinete(tipo)}
-                activeOpacity={0.8}
-              >
-                {tipo === "cheio"
-                  ? <Package size={16} color={tipoCabinete === tipo ? "#fff" : colors.mutedForeground} />
-                  : <Square size={16} color={tipoCabinete === tipo ? "#fff" : colors.mutedForeground} />}
-                <Text
-                  style={[
-                    styles.toggleText,
-                    { color: tipoCabinete === tipo ? "#fff" : colors.mutedForeground },
-                  ]}
-                >
-                  {tipo.charAt(0).toUpperCase() + tipo.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* ── TRANSPORTADOR ── */}
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SectionHeader title="Transportador" subtitle="Responsáveis pela movimentação" />
-          <SuggestField
-            label="Transportador"
-            value={transportador}
-            onChangeText={setTransportador}
-            suggestions={suggestions.transportador}
-            placeholder="Nome da transportadora"
-          />
-          <View style={styles.row}>
-            <View style={styles.half}>
-              <SuggestField
-                label="Motorista"
-                value={motorista}
-                onChangeText={setMotorista}
-                suggestions={suggestions.motorista}
-                placeholder="Nome"
-              />
-            </View>
-            <View style={styles.half}>
-              <FormField
-                label="RG"
-                value={rg}
-                onChangeText={setRg}
-                placeholder="RG do motorista"
-                keyboardType="numeric"
-              />
-            </View>
-          </View>
-          <FormField
-            label="Recebedor"
-            value={recebedor}
-            onChangeText={setRecebedor}
-            placeholder="Nome do recebedor"
-          />
-        </View>
-
+        {/* ══ BOTÃO SALVAR ═════════════════════════════════════════════════ */}
         <Pressable
           style={[styles.submitBtn, { backgroundColor: colors.primary }]}
           onPress={handleSalvar}
@@ -367,24 +612,24 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   header: {
     paddingHorizontal: 20,
-    paddingBottom: 24,
+    paddingBottom: 20,
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-between",
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontFamily: "Inter_700Bold",
-    color: "#ffffff",
-    letterSpacing: 0.5,
+    color: "#fff",
+    letterSpacing: 0.4,
   },
   headerSub: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.78)",
-    marginTop: 4,
+    color: "rgba(255,255,255,0.72)",
+    marginTop: 3,
   },
   saveBtn: {
     flexDirection: "row",
@@ -400,74 +645,33 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: 13,
   },
-  content: {
-    padding: 20,
-    gap: 14,
-  },
+  content: { padding: 16, gap: 14 },
   card: {
-    borderRadius: 22,
+    borderRadius: 20,
     borderWidth: 1,
-    padding: 18,
+    padding: 16,
     shadowColor: "rgba(15,23,42,0.06)",
-    shadowOffset: { width: 0, height: 10 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.08,
-    shadowRadius: 20,
+    shadowRadius: 16,
     elevation: 3,
   },
-  row: {
-    flexDirection: "row",
-    gap: 12,
+  conditional: {
+    marginTop: 8,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#E5E7EB",
   },
-  half: {
-    flex: 1,
-  },
-  fieldLabel: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-    marginBottom: 10,
-    textTransform: "uppercase",
-    letterSpacing: 0.35,
-  },
-  toggleRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 8,
-  },
-  toggleBtn: {
-    flex: 1,
-    flexDirection: "row",
+  bitremToggleRow: { flexDirection: "column", gap: 8, marginBottom: 4 },
+  bitremBtn: {
     alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 12,
+    paddingVertical: 13,
     borderRadius: 16,
     borderWidth: 1.5,
   },
-  toggleText: {
+  bitremBtnText: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
-  },
-  ctrlRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 14,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  ctrlLabel: {
-    fontSize: 11,
-    fontFamily: "Inter_500Medium",
-    letterSpacing: 0.4,
-  },
-  ctrlValue: {
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 14,
-    overflow: "hidden",
   },
   submitBtn: {
     flexDirection: "row",
@@ -476,7 +680,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 16,
     borderRadius: 18,
-    marginTop: 10,
+    marginTop: 6,
   },
   submitText: {
     fontSize: 16,

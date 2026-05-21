@@ -2,35 +2,54 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 export type StatusCautela = "pendente" | "concluida" | "cancelada";
-export type TipoCabinete = "cheio" | "vazio";
+export type SaidaChegada = "saindo" | "chegando";
+export type TipoVeiculo = "CAVALINHO ATRELADO" | "SÓ O CAVALINHO" | "CAMINHÃO" | "CARRO PEQUENO" | "";
+export type SituacaoCarreta = "CARREGADO" | "VAZIO" | "";
+export type TipoCarreta = "CONTÊINER" | "CARRETA ABERTA" | "";
+export type ModeloConteiner = "20 DC" | "20 TK" | "40 FR" | "40 HC" | "";
 
 export interface Cautela {
   id: string;
   numeroControle: string;
   dataMov: string;
-  origemLocal: string;
-  booking: string;
-  origemData: string;
-  origemHorario: string;
-  armador: string;
-  pesoLiq: string;
-  lacreArmador: string;
-  obs: string;
-  destinoLocal: string;
-  destinoData: string;
-  destinoHorario: string;
-  placaCavalo: string;
-  conteiner: string;
-  tara: string;
-  notasFiscais: string;
-  pesoBruto: string;
-  tipoCabinete: TipoCabinete;
-  transportador: string;
-  motorista: string;
-  rg: string;
-  recebedor: string;
   status: StatusCautela;
   createdAt: string;
+
+  // Direção
+  saidaChegada: SaidaChegada;
+
+  // Rota
+  origem: string;
+  destino: string;
+  operacao: string;
+
+  // Veículo
+  motorista: string;
+  placaCavalo: string;
+  odometro: string;
+  tipo: TipoVeiculo;
+
+  // Carreta Dianteira
+  placaCarreta: string;
+  situacao: SituacaoCarreta;
+  cliente: string;
+  tipoCarreta: TipoCarreta;
+  conteiner: string;
+  modeloConteiner: ModeloConteiner;
+  lacre: string;
+
+  // Bitrem
+  temBitrem: boolean;
+  placaCarretaTraseira: string;
+  situacaoTraseira: SituacaoCarreta;
+  clienteTraseira: string;
+  tipoCarretaTraseira: TipoCarreta;
+  conteinerTraseiro: string;
+  modeloConteinerTraseiro: ModeloConteiner;
+  lacreTraseiro: string;
+
+  // Observações
+  obs: string;
 }
 
 interface CautelaContextType {
@@ -46,7 +65,7 @@ interface CautelaContextType {
   };
 }
 
-const STORAGE_KEY = "@cautelas_v1";
+const STORAGE_KEY = "@cautelas_v2";
 
 const CautelaContext = createContext<CautelaContextType | null>(null);
 

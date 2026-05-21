@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle, FileText, XCircle } from "lucide-react-native";
+import { ArrowDown, ArrowLeft, ArrowUp, CheckCircle, FileText, XCircle } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
@@ -18,10 +18,10 @@ import { useCautela } from "@/contexts/CautelaContext";
 import { useColors } from "@/hooks/useColors";
 import { gerarECompartilharPDF } from "@/lib/generateCautelaPDF";
 
-const STATUS_CONFIG: Record<StatusCautela, { label: string; color: string; icon: string }> = {
-  pendente: { label: "Pendente", color: "#f59e0b", icon: "clock" },
-  concluida: { label: "Concluída", color: "#22c55e", icon: "check-circle" },
-  cancelada: { label: "Cancelada", color: "#ef4444", icon: "x-circle" },
+const STATUS_CONFIG: Record<StatusCautela, { label: string; color: string }> = {
+  pendente:  { label: "Pendente",  color: "#f59e0b" },
+  concluida: { label: "Concluída", color: "#22c55e" },
+  cancelada: { label: "Cancelada", color: "#ef4444" },
 };
 
 function InfoRow({ label, value }: { label: string; value?: string }) {
@@ -37,6 +37,8 @@ function InfoRow({ label, value }: { label: string; value?: string }) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   const colors = useColors();
+  const hasContent = React.Children.toArray(children).some(Boolean);
+  if (!hasContent) return null;
   return (
     <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={[styles.sectionHeader, { backgroundColor: colors.primary }]}>
@@ -56,6 +58,7 @@ export default function CautelaDetailScreen() {
 
   const topPad = Platform.OS === "web" ? 0 : insets.top;
   const botPad = Platform.OS === "web" ? 34 : 0;
+  const [generatingPDF, setGeneratingPDF] = useState(false);
 
   if (!cautela) {
     return (
@@ -68,7 +71,7 @@ export default function CautelaDetailScreen() {
   }
 
   const { label, color } = STATUS_CONFIG[cautela.status];
-  const [generatingPDF, setGeneratingPDF] = useState(false);
+  const isSaindo = cautela.saidaChegada === "saindo";
 
   async function handleGerarPDF() {
     setGeneratingPDF(true);
@@ -83,19 +86,16 @@ export default function CautelaDetailScreen() {
 
   function handleStatus(status: StatusCautela) {
     const msg = status === "concluida" ? "Marcar como concluída?" : "Cancelar esta cautela?";
-
     const execute = () => {
       updateStatus(cautela!.id, status);
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     };
-
     if (Platform.OS === "web") {
       if (window.confirm(msg)) execute();
       return;
     }
-
     Alert.alert("Confirmar", msg, [
       { text: "Não", style: "cancel" },
       { text: "Sim", style: status === "cancelada" ? "destructive" : "default", onPress: execute },
@@ -104,11 +104,20 @@ export default function CautelaDetailScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: topPad + 16 }]}>
+      {/* ── Cabeçalho ── */}
+      <View style={[styles.header, { backgroundColor: isSaindo ? "#1e3a8a" : "#15803d", paddingTop: topPad + 16 }]}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
           <ArrowLeft size={20} color="#fff" />
         </Pressable>
         <View style={styles.headerCenter}>
+          <View style={styles.directionRow}>
+            {isSaindo
+              ? <ArrowUp size={16} color="rgba(255,255,255,0.8)" />
+              : <ArrowDown size={16} color="rgba(255,255,255,0.8)" />}
+            <Text style={styles.directionLabel}>
+              {isSaindo ? "SAINDO" : "CHEGANDO"}
+            </Text>
+          </View>
           <Text style={styles.headerTitle}>#{cautela.numeroControle}</Text>
           <View style={[styles.badge, { backgroundColor: color + "30" }]}>
             <Text style={[styles.badgeText, { color }]}>{label}</Text>
@@ -125,42 +134,68 @@ export default function CautelaDetailScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* IDENTIFICAÇÃO */}
         <Section title="IDENTIFICAÇÃO">
           <InfoRow label="Nº de Controle" value={cautela.numeroControle} />
-          <InfoRow label="Data da Movimentação" value={cautela.dataMov} />
+          <InfoRow label="Data" value={cautela.dataMov} />
+          <InfoRow label="Direção" value={cautela.saidaChegada === "saindo" ? "Saindo" : "Chegando"} />
         </Section>
 
-        <Section title="ORIGEM">
-          <InfoRow label="Local" value={cautela.origemLocal} />
-          <InfoRow label="Booking" value={cautela.booking} />
-          <InfoRow label="Data / Horário" value={[cautela.origemData, cautela.origemHorario].filter(Boolean).join(" às ")} />
-          <InfoRow label="Armador" value={cautela.armador} />
-          <InfoRow label="Peso Líq." value={cautela.pesoLiq ? cautela.pesoLiq + " kg" : undefined} />
-          <InfoRow label="Lacre (Armador)" value={cautela.lacreArmador} />
-          <InfoRow label="OBS" value={cautela.obs} />
+        {/* ROTA */}
+        <Section title="ROTA">
+          <InfoRow label="Origem" value={cautela.origem} />
+          <InfoRow label="Destino" value={cautela.destino} />
+          <InfoRow label="Operação" value={cautela.operacao} />
         </Section>
 
-        <Section title="DESTINO">
-          <InfoRow label="Local" value={cautela.destinoLocal} />
-          <InfoRow label="Data / Horário" value={[cautela.destinoData, cautela.destinoHorario].filter(Boolean).join(" às ")} />
-          <InfoRow label="Placa (Cavalo)" value={cautela.placaCavalo} />
-          <InfoRow label="Contêiner" value={cautela.conteiner} />
-          <InfoRow label="Tara" value={cautela.tara ? cautela.tara + " kg" : undefined} />
-          <InfoRow label="Peso Bruto" value={cautela.pesoBruto ? cautela.pesoBruto + " kg" : undefined} />
-          <InfoRow label="Nota(s) Fiscal(is)" value={cautela.notasFiscais} />
-          <InfoRow
-            label="Tipo de Cabinete"
-            value={cautela.tipoCabinete === "cheio" ? "Cheio" : "Vazio"}
-          />
-        </Section>
-
-        <Section title="TRANSPORTADOR">
-          <InfoRow label="Transportador" value={cautela.transportador} />
+        {/* VEÍCULO */}
+        <Section title="VEÍCULO">
           <InfoRow label="Motorista" value={cautela.motorista} />
-          <InfoRow label="RG" value={cautela.rg} />
-          <InfoRow label="Recebedor" value={cautela.recebedor} />
+          <InfoRow label="Placa do Cavalo" value={cautela.placaCavalo} />
+          <InfoRow label="Odômetro" value={cautela.odometro ? cautela.odometro + " km" : undefined} />
+          <InfoRow label="Tipo" value={cautela.tipo} />
         </Section>
 
+        {/* CARRETA DIANTEIRA */}
+        <Section title="CARRETA DIANTEIRA">
+          <InfoRow label="Placa da Carreta" value={cautela.placaCarreta} />
+          <InfoRow label="Situação" value={cautela.situacao} />
+          <InfoRow label="Cliente" value={cautela.cliente} />
+          <InfoRow label="Tipo" value={cautela.tipoCarreta} />
+          {cautela.tipoCarreta === "CONTÊINER" && (
+            <>
+              <InfoRow label="Nº Contêiner" value={cautela.conteiner} />
+              <InfoRow label="Modelo" value={cautela.modeloConteiner} />
+              <InfoRow label="Lacre" value={cautela.lacre} />
+            </>
+          )}
+        </Section>
+
+        {/* BITREM */}
+        {cautela.temBitrem && (
+          <Section title="CARRETA TRASEIRA (BITREM)">
+            <InfoRow label="Placa Traseira" value={cautela.placaCarretaTraseira} />
+            <InfoRow label="Situação" value={cautela.situacaoTraseira} />
+            <InfoRow label="Cliente" value={cautela.clienteTraseira} />
+            <InfoRow label="Tipo" value={cautela.tipoCarretaTraseira} />
+            {cautela.tipoCarretaTraseira === "CONTÊINER" && (
+              <>
+                <InfoRow label="Nº Contêiner" value={cautela.conteinerTraseiro} />
+                <InfoRow label="Modelo" value={cautela.modeloConteinerTraseiro} />
+                <InfoRow label="Lacre" value={cautela.lacreTraseiro} />
+              </>
+            )}
+          </Section>
+        )}
+
+        {/* OBSERVAÇÕES */}
+        {cautela.obs ? (
+          <Section title="OBSERVAÇÕES">
+            <InfoRow label="Obs" value={cautela.obs} />
+          </Section>
+        ) : null}
+
+        {/* AÇÕES */}
         {cautela.status === "pendente" && (
           <View style={styles.actions}>
             <Pressable
@@ -185,11 +220,9 @@ export default function CautelaDetailScreen() {
           onPress={handleGerarPDF}
           disabled={generatingPDF}
         >
-          {generatingPDF ? (
-            <ActivityIndicator size="small" color="#1a2361" />
-          ) : (
-            <FileText size={18} color="#1a2361" />
-          )}
+          {generatingPDF
+            ? <ActivityIndicator size="small" color="#1a2361" />
+            : <FileText size={18} color="#1a2361" />}
           <Text style={styles.pdfBtnText}>
             {generatingPDF ? "Gerando PDF…" : "Gerar / Imprimir PDF"}
           </Text>
@@ -216,7 +249,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  headerCenter: { alignItems: "center", gap: 6 },
+  headerCenter: { alignItems: "center", gap: 4 },
+  directionRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  directionLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    color: "rgba(255,255,255,0.8)",
+    letterSpacing: 1,
+  },
   headerTitle: {
     fontSize: 18,
     fontFamily: "Inter_700Bold",
