@@ -1,4 +1,8 @@
-import { ArrowDown, ArrowLeft, ArrowUp, CheckCircle, FileText, MapPin, XCircle } from "lucide-react-native";
+import {
+  ArrowDown, ArrowLeft, ArrowUp,
+  CalendarDays, CheckCircle, Clock,
+  FileText, MapPin, X, XCircle,
+} from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
@@ -19,12 +23,205 @@ import { useCautela } from "@/contexts/CautelaContext";
 import { useColors } from "@/hooks/useColors";
 import { gerarECompartilharPDF } from "@/lib/generateCautelaPDF";
 
+// Carrega DateTimePicker apenas em native
+const NativeDatePicker: any =
+  Platform.OS !== "web"
+    ? require("@react-native-community/datetimepicker").default
+    : null;
+
 const STATUS_CONFIG: Record<StatusCautela, { label: string; color: string }> = {
   pendente:  { label: "Pendente",  color: "#f59e0b" },
   concluida: { label: "Concluída", color: "#22c55e" },
   cancelada: { label: "Cancelada", color: "#ef4444" },
 };
 
+// ── Helpers de formatação ─────────────────────────────────────────────────────
+function formatDate(d: Date): string {
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+function formatTime(d: Date): string {
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function isoTime(d: Date): string {
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+// ── DatePickerField ───────────────────────────────────────────────────────────
+function DatePickerField({
+  label, value, onChange,
+}: {
+  label: string; value: Date | null; onChange: (d: Date | null) => void;
+}) {
+  const colors = useColors();
+  const [show, setShow] = useState(false);
+
+  const borderColor = value ? colors.primary : colors.border;
+  const iconColor   = value ? colors.primary : colors.mutedForeground;
+
+  function handleWebChange(e: any) {
+    const v = e.target.value;
+    if (!v) { onChange(null); return; }
+    const [y, m, d] = v.split("-").map(Number);
+    onChange(new Date(y, m - 1, d));
+  }
+
+  return (
+    <View style={pf.wrap}>
+      <Text style={[pf.label, { color: colors.mutedForeground }]}>{label.toUpperCase()}</Text>
+
+      {Platform.OS === "web" ? (
+        <View style={[pf.btn, { borderColor, backgroundColor: colors.input }]}>
+          <CalendarDays size={15} color={iconColor} />
+          {React.createElement("input", {
+            type: "date",
+            value: value ? isoDate(value) : "",
+            onChange: handleWebChange,
+            style: {
+              flex: 1, minWidth: 0,
+              border: "none", outline: "none", background: "transparent",
+              fontSize: 14, cursor: "pointer",
+              color: value ? colors.foreground : colors.mutedForeground,
+              fontFamily: "'Inter', system-ui, sans-serif", padding: 0,
+            },
+          })}
+          {value && React.createElement("button", {
+            type: "button",
+            onClick: (e: any) => { e.stopPropagation(); onChange(null); },
+            style: { background: "none", border: "none", cursor: "pointer", padding: "0 2px", display: "flex" },
+          }, React.createElement(X, { size: 14, color: colors.mutedForeground }))}
+        </View>
+      ) : (
+        <>
+          <Pressable
+            style={[pf.btn, { borderColor, backgroundColor: colors.input }]}
+            onPress={() => setShow(true)}
+          >
+            <CalendarDays size={15} color={iconColor} />
+            <Text style={[pf.display, { color: value ? colors.foreground : colors.mutedForeground }]}>
+              {value ? formatDate(value) : "Selecionar data"}
+            </Text>
+            {value && (
+              <Pressable onPress={() => onChange(null)} hitSlop={8}>
+                <X size={14} color={colors.mutedForeground} />
+              </Pressable>
+            )}
+          </Pressable>
+          {show && NativeDatePicker && (
+            <NativeDatePicker
+              value={value ?? new Date()}
+              mode="date"
+              display="default"
+              onChange={(_: any, sel?: Date) => {
+                setShow(false);
+                if (sel) onChange(sel);
+              }}
+            />
+          )}
+        </>
+      )}
+    </View>
+  );
+}
+
+// ── TimePickerField ───────────────────────────────────────────────────────────
+function TimePickerField({
+  label, value, onChange,
+}: {
+  label: string; value: Date | null; onChange: (d: Date | null) => void;
+}) {
+  const colors = useColors();
+  const [show, setShow] = useState(false);
+
+  const borderColor = value ? colors.primary : colors.border;
+  const iconColor   = value ? colors.primary : colors.mutedForeground;
+
+  function handleWebChange(e: any) {
+    const v = e.target.value; // "HH:MM"
+    if (!v) { onChange(null); return; }
+    const [h, m] = v.split(":").map(Number);
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    onChange(d);
+  }
+
+  return (
+    <View style={pf.wrap}>
+      <Text style={[pf.label, { color: colors.mutedForeground }]}>{label.toUpperCase()}</Text>
+
+      {Platform.OS === "web" ? (
+        <View style={[pf.btn, { borderColor, backgroundColor: colors.input }]}>
+          <Clock size={15} color={iconColor} />
+          {React.createElement("input", {
+            type: "time",
+            value: value ? isoTime(value) : "",
+            onChange: handleWebChange,
+            style: {
+              flex: 1, minWidth: 0,
+              border: "none", outline: "none", background: "transparent",
+              fontSize: 14, cursor: "pointer",
+              color: value ? colors.foreground : colors.mutedForeground,
+              fontFamily: "'Inter', system-ui, sans-serif", padding: 0,
+            },
+          })}
+          {value && React.createElement("button", {
+            type: "button",
+            onClick: (e: any) => { e.stopPropagation(); onChange(null); },
+            style: { background: "none", border: "none", cursor: "pointer", padding: "0 2px", display: "flex" },
+          }, React.createElement(X, { size: 14, color: colors.mutedForeground }))}
+        </View>
+      ) : (
+        <>
+          <Pressable
+            style={[pf.btn, { borderColor, backgroundColor: colors.input }]}
+            onPress={() => setShow(true)}
+          >
+            <Clock size={15} color={iconColor} />
+            <Text style={[pf.display, { color: value ? colors.foreground : colors.mutedForeground }]}>
+              {value ? formatTime(value) : "Selecionar hora"}
+            </Text>
+            {value && (
+              <Pressable onPress={() => onChange(null)} hitSlop={8}>
+                <X size={14} color={colors.mutedForeground} />
+              </Pressable>
+            )}
+          </Pressable>
+          {show && NativeDatePicker && (
+            <NativeDatePicker
+              value={value ?? new Date()}
+              mode="time"
+              display="default"
+              is24Hour={true}
+              onChange={(_: any, sel?: Date) => {
+                setShow(false);
+                if (sel) onChange(sel);
+              }}
+            />
+          )}
+        </>
+      )}
+    </View>
+  );
+}
+
+const pf = StyleSheet.create({
+  wrap: { flex: 1 },
+  label: {
+    fontSize: 10, fontFamily: "Inter_500Medium",
+    letterSpacing: 0.5, marginBottom: 6,
+  },
+  btn: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    borderWidth: 1, borderRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 11,
+    minHeight: 44,
+  },
+  display: { flex: 1, fontSize: 14, fontFamily: "Inter_500Medium" },
+});
+
+// ── InfoRow / Section ─────────────────────────────────────────────────────────
 function InfoRow({ label, value }: { label: string; value?: string }) {
   const colors = useColors();
   if (!value) return null;
@@ -50,13 +247,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-// ── Campo de texto para o formulário de finalização ───────────────────────────
+// ── Campo de texto simples (Recebedor / RG) ───────────────────────────────────
 function FinalField({
-  label, value, onChange, placeholder, keyboardType, maxLength, autoCapitalize,
+  label, value, onChange, placeholder, autoCapitalize,
 }: {
   label: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; keyboardType?: "default" | "numeric" | "phone-pad";
-  maxLength?: number;
+  placeholder?: string;
   autoCapitalize?: "none" | "words" | "characters" | "sentences";
 }) {
   const colors = useColors();
@@ -69,8 +265,6 @@ function FinalField({
         onChangeText={onChange}
         placeholder={placeholder}
         placeholderTextColor={colors.mutedForeground}
-        keyboardType={keyboardType ?? "default"}
-        maxLength={maxLength}
         autoCapitalize={autoCapitalize ?? "words"}
         returnKeyType="next"
       />
@@ -84,6 +278,7 @@ const ff = StyleSheet.create({
     borderWidth: 1, borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 11,
     fontSize: 14, fontFamily: "Inter_400Regular",
+    minHeight: 44,
   },
 });
 
@@ -99,25 +294,12 @@ export default function CautelaDetailScreen() {
   const botPad = Platform.OS === "web" ? 34 : 0;
   const [generatingPDF, setGeneratingPDF] = useState(false);
 
-  // ── Finalização ─────────────────────────────────────────────────────────
-  const [finalizando, setFinalizando] = useState(false);
-  const [fDestData,    setFDestData]    = useState("");
-  const [fDestHorario, setFDestHorario] = useState("");
-  const [fRecebedor,   setFRecebedor]   = useState("");
-  const [fRG,          setFRG]          = useState("");
-
-  // Máscaras simples
-  function maskDate(raw: string): string {
-    const d = raw.replace(/\D/g, "").slice(0, 8);
-    if (d.length <= 2) return d;
-    if (d.length <= 4) return `${d.slice(0,2)}/${d.slice(2)}`;
-    return `${d.slice(0,2)}/${d.slice(2,4)}/${d.slice(4)}`;
-  }
-  function maskTime(raw: string): string {
-    const d = raw.replace(/\D/g, "").slice(0, 4);
-    if (d.length <= 2) return d;
-    return `${d.slice(0,2)}:${d.slice(2)}`;
-  }
+  // ── Finalização ─────────────────────────────────────────────────────────────
+  const [finalizando,   setFinalizando]   = useState(false);
+  const [fDestDate,     setFDestDate]     = useState<Date | null>(null);
+  const [fDestTime,     setFDestTime]     = useState<Date | null>(null);
+  const [fRecebedor,    setFRecebedor]    = useState("");
+  const [fRG,           setFRG]           = useState("");
 
   if (!cautela) {
     return (
@@ -157,8 +339,8 @@ export default function CautelaDetailScreen() {
   }
 
   function handleFinalizar() {
-    if (!fDestData || !fDestHorario || !fRecebedor) {
-      const msg = "Preencha pelo menos Data de Entrega, Horário e Recebedor.";
+    if (!fDestDate || !fDestTime || !fRecebedor.trim()) {
+      const msg = "Selecione a Data de Entrega, o Horário e informe o Recebedor.";
       if (Platform.OS === "web") { alert(msg); return; }
       Alert.alert("Campos obrigatórios", msg);
       return;
@@ -166,10 +348,10 @@ export default function CautelaDetailScreen() {
     const msg = "Confirmar entrega e marcar como Concluída?";
     const execute = () => {
       finalizarCautela(cautela!.id, {
-        destinoData: fDestData,
-        destinoHorario: fDestHorario,
-        recebedor: fRecebedor,
-        rg: fRG,
+        destinoData:    formatDate(fDestDate!),
+        destinoHorario: formatTime(fDestTime!),
+        recebedor: fRecebedor.trim(),
+        rg: fRG.trim(),
       });
       setFinalizando(false);
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -275,21 +457,21 @@ export default function CautelaDetailScreen() {
           </Section>
         ) : null}
 
-        {/* ENTREGA (só aparece quando concluída E tem dados) */}
+        {/* ENTREGA (só quando concluída) */}
         {cautela.status === "concluida" && cautela.recebedor ? (
           <Section title="ENTREGA">
-            <InfoRow label="Data de Entrega"    value={cautela.destinoData} />
-            <InfoRow label="Horário"            value={cautela.destinoHorario} />
-            <InfoRow label="Recebedor"          value={cautela.recebedor} />
-            <InfoRow label="RG do Recebedor"    value={cautela.rg} />
+            <InfoRow label="Data de Entrega" value={cautela.destinoData} />
+            <InfoRow label="Horário"         value={cautela.destinoHorario} />
+            <InfoRow label="Recebedor"       value={cautela.recebedor} />
+            <InfoRow label="RG do Recebedor" value={cautela.rg} />
           </Section>
         ) : null}
 
-        {/* ── AÇÕES ──────────────────────────────────────────────────── */}
+        {/* ── AÇÕES ──────────────────────────────────────────────────────── */}
         {cautela.status === "pendente" && (
           <View style={styles.actionsWrap}>
 
-            {/* ── Formulário de finalização ── */}
+            {/* ── Formulário de finalização ─────────────────────────────── */}
             {finalizando ? (
               <View style={[styles.finalizarCard, { backgroundColor: colors.card, borderColor: "#22c55e" }]}>
                 <View style={styles.finalizarHeader}>
@@ -302,28 +484,21 @@ export default function CautelaDetailScreen() {
                   Preencha os dados no momento da entrega para concluir a cautela.
                 </Text>
 
+                {/* Data e Hora lado a lado */}
                 <View style={styles.dateTimeRow}>
-                  <View style={{ flex: 1 }}>
-                    <FinalField
-                      label="Data de entrega *"
-                      value={fDestData}
-                      onChange={(v) => setFDestData(maskDate(v))}
-                      placeholder="DD/MM/AAAA"
-                      keyboardType="numeric"
-                      maxLength={10}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <FinalField
-                      label="Horário *"
-                      value={fDestHorario}
-                      onChange={(v) => setFDestHorario(maskTime(v))}
-                      placeholder="HH:MM"
-                      keyboardType="numeric"
-                      maxLength={5}
-                    />
-                  </View>
+                  <DatePickerField
+                    label="Data de entrega *"
+                    value={fDestDate}
+                    onChange={setFDestDate}
+                  />
+                  <TimePickerField
+                    label="Horário *"
+                    value={fDestTime}
+                    onChange={setFDestTime}
+                  />
                 </View>
+
+                <View style={{ height: 12 }} />
 
                 <FinalField
                   label="Recebedor *"
@@ -362,7 +537,7 @@ export default function CautelaDetailScreen() {
                 </View>
               </View>
             ) : (
-              /* ── Botões de ação ── */
+              /* ── Botões de ação ─────────────────────────────────────── */
               <View style={styles.actions}>
                 <Pressable
                   style={[styles.actionBtn, { backgroundColor: "#22c55e" }]}
@@ -383,7 +558,7 @@ export default function CautelaDetailScreen() {
           </View>
         )}
 
-        {/* ── Botão PDF (sempre visível) ───────────────────────────── */}
+        {/* ── Botão PDF (sempre visível) ─────────────────────────────────── */}
         <Pressable
           style={[styles.actionBtn, styles.pdfBtn]}
           onPress={handleGerarPDF}
