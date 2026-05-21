@@ -34,6 +34,8 @@ export interface Settings {
   placasCavalo: string[];
   apiUrl: string;
   syncEnabled: boolean;
+  motoristaPins: Record<string, string>; // { "NOME": "1234" }
+  adminPin: string;                      // 6 dígitos
 }
 
 interface SettingsContextType {
@@ -47,6 +49,10 @@ interface SettingsContextType {
   // API
   setApiUrl: (url: string) => void;
   setSyncEnabled: (enabled: boolean) => void;
+  // PINs
+  setMotoristaPinFor: (nome: string, pin: string) => void;
+  removeMotoristaPinFor: (nome: string) => void;
+  setAdminPin: (pin: string) => void;
   // Reset
   resetToDefaults: () => void;
 }
@@ -58,6 +64,8 @@ const DEFAULT_SETTINGS: Settings = {
   placasCavalo: DEFAULT_PLACAS,
   apiUrl: "http://localhost:3000",
   syncEnabled: false,
+  motoristaPins: {},
+  adminPin: "123456",
 };
 
 const SettingsContext = createContext<SettingsContextType | null>(null);
@@ -125,6 +133,27 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     [settings, save]
   );
 
+  const setMotoristaPinFor = useCallback(
+    (nome: string, pin: string) => {
+      save({ ...settings, motoristaPins: { ...settings.motoristaPins, [nome]: pin } });
+    },
+    [settings, save]
+  );
+
+  const removeMotoristaPinFor = useCallback(
+    (nome: string) => {
+      const next = { ...settings.motoristaPins };
+      delete next[nome];
+      save({ ...settings, motoristaPins: next });
+    },
+    [settings, save]
+  );
+
+  const setAdminPin = useCallback(
+    (pin: string) => save({ ...settings, adminPin: pin }),
+    [settings, save]
+  );
+
   const resetToDefaults = useCallback(() => save(DEFAULT_SETTINGS), [save]);
 
   return (
@@ -137,6 +166,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         removePlaca,
         setApiUrl,
         setSyncEnabled,
+        setMotoristaPinFor,
+        removeMotoristaPinFor,
+        setAdminPin,
         resetToDefaults,
       }}
     >

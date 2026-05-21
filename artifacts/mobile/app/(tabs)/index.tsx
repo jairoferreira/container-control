@@ -1,9 +1,10 @@
 import { router } from "expo-router";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { Inbox, Plus } from "lucide-react-native";
+import { Inbox, LogOut, Plus } from "lucide-react-native";
 import React from "react";
 import {
+  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -13,6 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CautelaCard } from "@/components/CautelaCard";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCautela } from "@/contexts/CautelaContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -56,8 +58,21 @@ export default function DashboardScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { stats, cauteias } = useCautela();
+  const { user, logout } = useAuth();
   const recent = cauteias.slice(0, 5);
   const topPad = Platform.OS === "web" ? 0 : insets.top;
+
+  function handleLogout() {
+    const msg = "Deseja sair da conta?";
+    if (Platform.OS === "web") {
+      if (window.confirm(msg)) logout();
+    } else {
+      Alert.alert("Sair", msg, [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Sair", style: "destructive", onPress: logout },
+      ]);
+    }
+  }
   const botPad = Platform.OS === "web" ? 34 : 0;
 
   return (
@@ -72,7 +87,11 @@ export default function DashboardScreen() {
           <View style={styles.topLeft}>
             <Text style={styles.company}>THIBA LOGÍSTICA</Text>
             <Text style={styles.title}>CONTROLE DE{`\n`}CAUTELAS</Text>
-            <Text style={styles.sub}>Movimentação de contêineres em um só lugar</Text>
+            {user && (
+              <Text style={styles.sub} numberOfLines={1}>
+                {user.isAdmin ? "👤 Administrador" : `👤 ${user.nome.split(" ")[0]}`}
+              </Text>
+            )}
           </View>
           <View style={styles.topRight}>
             <View style={styles.logoWrap}>
@@ -82,9 +101,14 @@ export default function DashboardScreen() {
                 contentFit="contain"
               />
             </View>
-            <Pressable style={styles.addBtn} onPress={() => router.push("/(tabs)/nova-cautela")}> 
-              <Plus size={18} color="#fff" />
-            </Pressable>
+            <View style={styles.headerBtns}>
+              <Pressable style={styles.addBtn} onPress={() => router.push("/(tabs)/nova-cautela")}>
+                <Plus size={18} color="#fff" />
+              </Pressable>
+              <Pressable style={styles.addBtn} onPress={handleLogout}>
+                <LogOut size={17} color="rgba(255,255,255,0.8)" />
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -167,7 +191,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 18,
   },
-  topRight: { alignItems: "center", gap: 10 },
+  topRight: { alignItems: "center", gap: 8 },
+  headerBtns: { flexDirection: "row", gap: 8 },
   logoWrap: {
     width: 64,
     height: 64,

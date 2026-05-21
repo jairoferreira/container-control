@@ -7,9 +7,11 @@ import { Home, List, PlusCircle, Settings } from "lucide-react-native";
 import React from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
+import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
 
 function NativeTabLayout() {
+  const { user } = useAuth();
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
@@ -24,10 +26,12 @@ function NativeTabLayout() {
         <Icon sf={{ default: "list.bullet", selected: "list.bullet.circle.fill" }} />
         <Label>Histórico</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="configuracoes">
-        <Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} />
-        <Label>Config.</Label>
-      </NativeTabs.Trigger>
+      {user?.isAdmin && (
+        <NativeTabs.Trigger name="configuracoes">
+          <Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} />
+          <Label>Config.</Label>
+        </NativeTabs.Trigger>
+      )}
     </NativeTabs>
   );
 }
@@ -35,6 +39,7 @@ function NativeTabLayout() {
 function ClassicTabLayout() {
   const colors = useColors();
   const colorScheme = useColorScheme();
+  const { user } = useAuth();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
@@ -110,6 +115,8 @@ function ClassicTabLayout() {
         name="configuracoes"
         options={{
           title: "Config.",
+          // Esconde a aba visualmente para motoristas; admin vê normalmente
+          tabBarButton: user?.isAdmin ? undefined : () => null,
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="gearshape" tintColor={color} size={22} />

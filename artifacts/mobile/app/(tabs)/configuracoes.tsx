@@ -3,6 +3,8 @@ import {
   CheckCircle2,
   Cloud,
   CloudOff,
+  KeyRound,
+  Lock,
   Plus,
   RefreshCw,
   Trash2,
@@ -13,6 +15,7 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -204,6 +207,115 @@ const list = StyleSheet.create({
   },
 });
 
+// ── PIN Modal ─────────────────────────────────────────────────────────────
+function PinModal({
+  visible,
+  title,
+  length,
+  onConfirm,
+  onClose,
+}: {
+  visible: boolean;
+  title: string;
+  length: 4 | 6;
+  onConfirm: (pin: string) => void;
+  onClose: () => void;
+}) {
+  const colors = useColors();
+  const [value, setValue] = useState("");
+  const [error, setError] = useState("");
+
+  function handleConfirm() {
+    if (value.length !== length) {
+      setError(`PIN deve ter ${length} dígitos.`);
+      return;
+    }
+    onConfirm(value);
+    setValue("");
+    setError("");
+  }
+
+  function handleClose() {
+    setValue("");
+    setError("");
+    onClose();
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
+      <View style={pm.overlay}>
+        <View style={[pm.box, { backgroundColor: colors.card }]}>
+          <Text style={[pm.title, { color: colors.foreground }]}>{title}</Text>
+          <TextInput
+            style={[pm.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.input }]}
+            value={value}
+            onChangeText={(t) => { setValue(t.replace(/\D/g, "").slice(0, length)); setError(""); }}
+            placeholder={"•".repeat(length)}
+            placeholderTextColor={colors.mutedForeground}
+            keyboardType="numeric"
+            secureTextEntry
+            maxLength={length}
+            autoFocus
+          />
+          {error ? <Text style={pm.error}>{error}</Text> : null}
+          <View style={pm.btnRow}>
+            <Pressable style={[pm.btn, { borderColor: colors.border }]} onPress={handleClose}>
+              <Text style={[pm.btnText, { color: colors.mutedForeground }]}>Cancelar</Text>
+            </Pressable>
+            <Pressable style={[pm.btn, pm.btnPrimary]} onPress={handleConfirm}>
+              <Text style={[pm.btnText, { color: "#fff" }]}>Salvar</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const pm = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  box: {
+    borderRadius: 22,
+    padding: 24,
+    width: "100%",
+    maxWidth: 380,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 30,
+    elevation: 12,
+    gap: 14,
+  },
+  title: { fontSize: 16, fontFamily: "Inter_700Bold", textAlign: "center" },
+  input: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 22,
+    fontFamily: "Inter_500Medium",
+    textAlign: "center",
+    letterSpacing: 8,
+  },
+  error: { color: "#ef4444", fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center" },
+  btnRow: { flexDirection: "row", gap: 10 },
+  btn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  btnPrimary: { backgroundColor: "#1e3a8a", borderColor: "#1e3a8a" },
+  btnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // TELA PRINCIPAL
 // ═══════════════════════════════════════════════════════════════════════════
@@ -221,6 +333,9 @@ export default function ConfiguracoesScreen() {
     removePlaca,
     setApiUrl,
     setSyncEnabled,
+    setMotoristaPinFor,
+    removeMotoristaPinFor,
+    setAdminPin,
     resetToDefaults,
   } = useSettings();
 
@@ -228,6 +343,13 @@ export default function ConfiguracoesScreen() {
   const [apiUrlInput, setApiUrlInput] = useState(settings.apiUrl);
   const [syncing, setSyncing] = useState(false);
   const [testResult, setTestResult] = useState<"ok" | "error" | null>(null);
+
+  // PIN management modal state
+  const [pinModal, setPinModal] = useState<{
+    open: boolean;
+    type: "motorista" | "admin";
+    nome?: string;
+  }>({ open: false, type: "motorista" });
 
   async function handleSync() {
     setSyncing(true);
@@ -287,6 +409,71 @@ export default function ConfiguracoesScreen() {
             onRemove={removePlaca}
             autoCapitalize="characters"
           />
+        </SectionCard>
+
+        {/* ══ PINs DOS MOTORISTAS ═════════════════════════════════════════ */}
+        <SectionCard
+          title="PINs dos Motoristas"
+          icon={<KeyRound size={18} color={colors.primary} />}
+        >
+          <Text style={[pinStyles.hint, { color: colors.mutedForeground }]}>
+            PIN padrão é <Text style={{ fontFamily: "Inter_700Bold" }}>0000</Text> para motoristas sem PIN cadastrado. Toque no nome para definir um PIN personalizado.
+          </Text>
+          {settings.motoristas.map((nome) => {
+            const hasPin = !!settings.motoristaPins[nome];
+            return (
+              <View key={nome} style={[pinStyles.row, { borderBottomColor: colors.border }]}>
+                <View style={pinStyles.rowLeft}>
+                  <Text style={[pinStyles.nome, { color: colors.foreground }]} numberOfLines={1}>
+                    {nome}
+                  </Text>
+                  <View style={[pinStyles.badge, { backgroundColor: hasPin ? "#dcfce7" : colors.muted }]}>
+                    <Text style={[pinStyles.badgeText, { color: hasPin ? "#15803d" : colors.mutedForeground }]}>
+                      {hasPin ? "PIN definido" : "Padrão 0000"}
+                    </Text>
+                  </View>
+                </View>
+                <View style={pinStyles.rowBtns}>
+                  <Pressable
+                    style={[pinStyles.btn, { borderColor: colors.border }]}
+                    onPress={() => setPinModal({ open: true, type: "motorista", nome })}
+                    hitSlop={6}
+                  >
+                    <Lock size={14} color={colors.primary} />
+                    <Text style={[pinStyles.btnText, { color: colors.primary }]}>
+                      {hasPin ? "Alterar" : "Definir"}
+                    </Text>
+                  </Pressable>
+                  {hasPin && (
+                    <Pressable
+                      style={[pinStyles.btn, { borderColor: "#fca5a5" }]}
+                      onPress={() => removeMotoristaPinFor(nome)}
+                      hitSlop={6}
+                    >
+                      <Text style={[pinStyles.btnText, { color: "#ef4444" }]}>Reset</Text>
+                    </Pressable>
+                  )}
+                </View>
+              </View>
+            );
+          })}
+        </SectionCard>
+
+        {/* ══ PIN DO ADMINISTRADOR ════════════════════════════════════════ */}
+        <SectionCard
+          title="PIN do Administrador"
+          icon={<Lock size={18} color={colors.primary} />}
+        >
+          <Text style={[pinStyles.hint, { color: colors.mutedForeground }]}>
+            PIN de 6 dígitos usado no acesso secreto do gestor (3 toques no logo THIBA).
+          </Text>
+          <Pressable
+            style={[pinStyles.adminBtn, { backgroundColor: "#1e3a8a" }]}
+            onPress={() => setPinModal({ open: true, type: "admin" })}
+          >
+            <Lock size={16} color="#fff" />
+            <Text style={pinStyles.adminBtnText}>Alterar PIN do Administrador</Text>
+          </Pressable>
         </SectionCard>
 
         {/* ══ SINCRONIZAÇÃO EM NUVEM ═══════════════════════════════════════ */}
@@ -401,6 +588,28 @@ export default function ConfiguracoesScreen() {
           <Text style={styles.resetText}>Restaurar Listas para o Padrão</Text>
         </Pressable>
       </ScrollView>
+
+      {/* ── PIN Modal ───────────────────────────────────────────────────── */}
+      <PinModal
+        visible={pinModal.open}
+        title={
+          pinModal.type === "admin"
+            ? "Novo PIN do Administrador"
+            : `PIN de ${pinModal.nome?.split(" ")[0] ?? ""}`
+        }
+        length={pinModal.type === "admin" ? 6 : 4}
+        onConfirm={(pin) => {
+          if (pinModal.type === "admin") {
+            setAdminPin(pin);
+            Alert.alert("✅ Salvo", "PIN do administrador atualizado.");
+          } else if (pinModal.nome) {
+            setMotoristaPinFor(pinModal.nome, pin);
+            Alert.alert("✅ Salvo", `PIN de ${pinModal.nome.split(" ")[0]} definido.`);
+          }
+          setPinModal({ open: false, type: "motorista" });
+        }}
+        onClose={() => setPinModal({ open: false, type: "motorista" })}
+      />
     </View>
   );
 }
@@ -518,5 +727,55 @@ const styles = StyleSheet.create({
     color: "#ef4444",
     fontFamily: "Inter_600SemiBold",
     fontSize: 13,
+  },
+});
+
+const pinStyles = StyleSheet.create({
+  hint: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 8,
+  },
+  rowLeft: { flex: 1, gap: 3 },
+  nome: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  badge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  badgeText: { fontSize: 10, fontFamily: "Inter_500Medium" },
+  rowBtns: { flexDirection: "row", gap: 6 },
+  btn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  btnText: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  adminBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 13,
+    borderRadius: 14,
+    marginTop: 4,
+  },
+  adminBtnText: {
+    color: "#fff",
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
   },
 });

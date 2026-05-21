@@ -14,6 +14,8 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { LoginScreen } from "@/components/LoginScreen";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { CautelaProvider } from "@/contexts/CautelaContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 
@@ -31,6 +33,13 @@ function RootLayoutNav() {
       />
     </Stack>
   );
+}
+
+/** Mostra LoginScreen enquanto não autenticado, app normal após login */
+function AppGate() {
+  const { user } = useAuth();
+  if (!user) return <LoginScreen />;
+  return <RootLayoutNav />;
 }
 
 export default function RootLayout() {
@@ -54,13 +63,15 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <SettingsProvider>
-          <CautelaProvider>
-            <GestureHandlerRootView>
-              <KeyboardProvider>
-                <RootLayoutNav />
-              </KeyboardProvider>
-            </GestureHandlerRootView>
-          </CautelaProvider>
+            <AuthProvider>
+              <CautelaProvider>
+                <GestureHandlerRootView>
+                  <KeyboardProvider>
+                    <AppGate />
+                  </KeyboardProvider>
+                </GestureHandlerRootView>
+              </CautelaProvider>
+            </AuthProvider>
           </SettingsProvider>
         </QueryClientProvider>
       </ErrorBoundary>
