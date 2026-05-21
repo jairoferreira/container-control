@@ -1,4 +1,4 @@
-import { ChevronDown, X } from "lucide-react-native";
+import { ChevronDown, Lock, X } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   FlatList,
@@ -20,6 +20,8 @@ interface SelectFieldProps {
   onChange: (v: string) => void;
   placeholder?: string;
   required?: boolean;
+  /** Trava o campo: exibe o valor mas impede alteração */
+  locked?: boolean;
 }
 
 export function SelectField({
@@ -29,6 +31,7 @@ export function SelectField({
   onChange,
   placeholder = "Selecionar…",
   required,
+  locked = false,
 }: SelectFieldProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -52,13 +55,15 @@ export function SelectField({
           style={[
             styles.btn,
             { borderColor: colors.border, backgroundColor: colors.input },
+            locked && styles.btnLocked,
           ]}
         >
           <Select
             value={value}
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-              onChange(e.target.value)
+              !locked && onChange(e.target.value)
             }
+            disabled={locked}
             style={{
               flex: 1,
               fontSize: 14,
@@ -67,7 +72,8 @@ export function SelectField({
               border: "none",
               outline: "none",
               background: "transparent",
-              cursor: "pointer",
+              cursor: locked ? "default" : "pointer",
+              opacity: 1,
             }}
           >
             <option value="">{placeholder}</option>
@@ -77,7 +83,9 @@ export function SelectField({
               </option>
             ))}
           </Select>
-          <ChevronDown size={16} color={colors.mutedForeground} />
+          {locked
+            ? <Lock size={14} color={colors.mutedForeground} />
+            : <ChevronDown size={16} color={colors.mutedForeground} />}
         </View>
       </View>
     );
@@ -95,8 +103,10 @@ export function SelectField({
         style={[
           styles.btn,
           { borderColor: colors.border, backgroundColor: colors.input },
+          locked && styles.btnLocked,
         ]}
-        onPress={() => { setSearch(""); setOpen(true); }}
+        onPress={() => { if (!locked) { setSearch(""); setOpen(true); } }}
+        disabled={locked}
       >
         <Text
           style={[
@@ -107,7 +117,9 @@ export function SelectField({
         >
           {value || placeholder}
         </Text>
-        <ChevronDown size={16} color={colors.mutedForeground} />
+        {locked
+          ? <Lock size={14} color={colors.mutedForeground} />
+          : <ChevronDown size={16} color={colors.mutedForeground} />}
       </Pressable>
 
       <Modal visible={open} animationType="slide" transparent>
@@ -204,6 +216,10 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     minHeight: 48,
     gap: 8,
+  },
+  btnLocked: {
+    opacity: 0.7,
+    borderStyle: "dashed",
   },
   btnText: {
     flex: 1,

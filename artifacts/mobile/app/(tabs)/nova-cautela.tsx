@@ -26,6 +26,7 @@ import type {
   TipoCarreta,
   TipoVeiculo,
 } from "@/contexts/CautelaContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCautela } from "@/contexts/CautelaContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useColors } from "@/hooks/useColors";
@@ -194,6 +195,10 @@ export default function NovaCautelaScreen() {
   const insets = useSafeAreaInsets();
   const { cauteias, addCautela } = useCautela();
   const { settings } = useSettings();
+  const { user } = useAuth();
+
+  // Motorista travado quando logado como motorista; admin pode escolher
+  const motoristaLocked = !!user && !user.isAdmin;
 
   // Listas dinâmicas vindas das Configurações (gerenciadas pelo gestor)
   const MOTORISTAS = settings.motoristas;
@@ -230,8 +235,10 @@ export default function NovaCautelaScreen() {
   const [destino, setDestino] = useState("");
   const [operacao, setOperacao] = useState("");
 
-  // Veículo
-  const [motorista, setMotorista] = useState("");
+  // Veículo — pré-preenche com o motorista logado (travado para não-admin)
+  const [motorista, setMotorista] = useState(
+    user && !user.isAdmin ? user.nome : ""
+  );
   const [placaCavalo, setPlacaCavalo] = useState("");
   const [odometro, setOdometro] = useState("");
   const [tipo, setTipo] = useState<TipoVeiculo>("");
@@ -345,6 +352,7 @@ export default function NovaCautelaScreen() {
             onChange={setMotorista}
             placeholder="Selecionar motorista…"
             required
+            locked={motoristaLocked}
           />
           <SelectField
             label="Placa do Cavalo"
