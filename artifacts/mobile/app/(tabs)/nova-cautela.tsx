@@ -326,42 +326,15 @@ export default function NovaCautelaScreen() {
         {/* ══ SAINDO / CHEGANDO ═══════════════════════════════════════════ */}
         <DirectionToggle value={saidaChegada} onChange={setSaidaChegada} />
 
-        {/* ══ IDENTIFICAÇÃO ═══════════════════════════════════════════════ */}
+        {/* ══ VEÍCULO ═════════════════════════════════════════════════════
+            Data + Motorista + Placa + Odômetro + Tipo — tudo junto:
+            quem está dirigindo, quando e com qual veículo              */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SectionHeader title="Identificação" />
+          <SectionHeader title="Veículo" subtitle="Motorista, data e trator" />
+
+          {/* Data da movimentação fica aqui, junto ao motorista */}
           <DateField label="Data da Movimentação" value={dataMov} onChange={setDataMov} />
-        </View>
 
-        {/* ══ ROTA ════════════════════════════════════════════════════════ */}
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SectionHeader title="Rota" subtitle="De onde sai e para onde vai" />
-          <SuggestField
-            label="Origem"
-            value={origem}
-            onChangeText={setOrigem}
-            suggestions={suggestions.origem}
-            placeholder="Local de saída"
-            autoCapitalize="words"
-          />
-          <SuggestField
-            label="Destino"
-            value={destino}
-            onChangeText={setDestino}
-            suggestions={suggestions.destino}
-            placeholder="Local de chegada"
-            autoCapitalize="words"
-          />
-          <OptionPicker
-            label="Operação"
-            options={OPERACOES}
-            value={operacao}
-            onChange={setOperacao}
-          />
-        </View>
-
-        {/* ══ VEÍCULO ═════════════════════════════════════════════════════ */}
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SectionHeader title="Veículo" subtitle="Motorista e trator" />
           <SelectField
             label="Motorista"
             options={MOTORISTAS}
@@ -391,6 +364,33 @@ export default function NovaCautelaScreen() {
             value={tipo}
             onChange={(v) => setTipo(v as TipoVeiculo)}
             columns={2}
+          />
+        </View>
+
+        {/* ══ ROTA ════════════════════════════════════════════════════════ */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <SectionHeader title="Rota" subtitle="De onde sai e para onde vai" />
+          <SuggestField
+            label="Origem"
+            value={origem}
+            onChangeText={setOrigem}
+            suggestions={suggestions.origem}
+            placeholder="Local de saída"
+            autoCapitalize="words"
+          />
+          <SuggestField
+            label="Destino"
+            value={destino}
+            onChangeText={setDestino}
+            suggestions={suggestions.destino}
+            placeholder="Local de chegada"
+            autoCapitalize="words"
+          />
+          <OptionPicker
+            label="Operação"
+            options={OPERACOES}
+            value={operacao}
+            onChange={setOperacao}
           />
         </View>
 
