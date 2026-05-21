@@ -144,9 +144,16 @@ function MotoristaCadastroItem({
       </View>
       {/* Dados */}
       <View style={{ flex: 1, gap: 3 }}>
-        <Text style={[mitem.nome, { color: colors.foreground }]} numberOfLines={1}>
-          {motorista.nome}
-        </Text>
+        <View style={mitem.nomeRow}>
+          <Text style={[mitem.nome, { color: colors.foreground }]} numberOfLines={1}>
+            {motorista.nome}
+          </Text>
+          {motorista.matricula ? (
+            <Text style={[mitem.matricula, { color: colors.mutedForeground }]}>
+              {motorista.matricula}
+            </Text>
+          ) : null}
+        </View>
         <View style={mitem.badges}>
           {motorista.cnh ? (
             <Text style={[mitem.badge, { backgroundColor: "#eff6ff", color: "#1d4ed8" }]}>
@@ -192,7 +199,9 @@ const mitem = StyleSheet.create({
   wrap: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
   avatar: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   avatarText: { fontSize: 16, fontFamily: "Inter_700Bold" },
+  nomeRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
   nome: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  matricula: { fontSize: 10, fontFamily: "Inter_500Medium", opacity: 0.6 },
   badges: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
   badge: { fontSize: 10, fontFamily: "Inter_500Medium", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   statusChip: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },

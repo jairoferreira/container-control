@@ -4,12 +4,19 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 // ── Tipo rico de Motorista (inspirado no projeto Vue Operação Logística) ────
 export interface Motorista {
   id: string;
+  matricula: string; // ex: "THB-00123" — gerado automaticamente, editável
   nome: string;
   cnh: string;
   telefone: string;
   placa: string;    // placa do cavalo habitual (opcional)
   ativo: boolean;
   pin: string;      // PIN de 4 dígitos para login (padrão "0000")
+}
+
+/** Gera matrícula aleatória no formato THB-XXXXX */
+export function gerarMatricula(): string {
+  const n = Math.floor(10000 + Math.random() * 90000);
+  return `THB-${n}`;
 }
 
 // ── Helper: nomes dos motoristas ativos (para dropdowns) ────────────────────
@@ -38,6 +45,7 @@ const DEFAULT_MOTORISTAS: Motorista[] = [
   "SANDRO LUIZ DA SILVA OLIVEIRA",
 ].map((nome, i) => ({
   id: `seed_${i}`,
+  matricula: `THB-${String(i + 1).padStart(5, "0")}`,
   nome,
   cnh: "",
   telefone: "",
@@ -104,12 +112,21 @@ function migrate(raw: any): Settings {
     const oldPins: Record<string, string> = raw.motoristaPins ?? {};
     base.motoristas = (base.motoristas as string[]).map((nome, i) => ({
       id: `migrated_${i}`,
+      matricula: `THB-${String(i + 1).padStart(5, "0")}`,
       nome,
       cnh: "",
       telefone: "",
       placa: "",
       ativo: true,
       pin: oldPins[nome] ?? "0000",
+    }));
+  }
+
+  // Garante que motoristas existentes sem matricula recebam uma
+  if (Array.isArray(base.motoristas)) {
+    base.motoristas = base.motoristas.map((m: any) => ({
+      ...m,
+      matricula: m.matricula || `THB-${Math.floor(10000 + Math.random() * 90000)}`,
     }));
   }
 
@@ -148,6 +165,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         ...m,
         nome,
         id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        matricula: m.matricula || gerarMatricula(),
         pin: m.pin || "0000",
       };
       const lista = [...settings.motoristas, novo].sort((a, b) =>

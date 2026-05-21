@@ -1,4 +1,4 @@
-import { Eye, EyeOff, User } from "lucide-react-native";
+import { Eye, EyeOff, RefreshCw, User } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import type { Motorista } from "@/contexts/SettingsContext";
+import { gerarMatricula } from "@/contexts/SettingsContext";
 import { useColors } from "@/hooks/useColors";
 
 // ── Subcomponente: campo de texto ──────────────────────────────────────────
@@ -127,7 +128,7 @@ interface MotoristaModalProps {
 }
 
 const EMPTY: Omit<Motorista, "id"> = {
-  nome: "", cnh: "", telefone: "", placa: "", ativo: true, pin: "0000",
+  matricula: "", nome: "", cnh: "", telefone: "", placa: "", ativo: true, pin: "0000",
 };
 
 export function MotoristaModal({ visible, motorista, onSave, onClose }: MotoristaModalProps) {
@@ -139,13 +140,14 @@ export function MotoristaModal({ visible, motorista, onSave, onClose }: Motorist
   useEffect(() => {
     if (visible) {
       setForm(motorista ? {
+        matricula: motorista.matricula,
         nome: motorista.nome,
         cnh: motorista.cnh,
         telefone: motorista.telefone,
         placa: motorista.placa,
         ativo: motorista.ativo,
         pin: motorista.pin,
-      } : EMPTY);
+      } : { ...EMPTY, matricula: gerarMatricula() });
     }
   }, [visible, motorista]);
 
@@ -198,6 +200,34 @@ export function MotoristaModal({ visible, motorista, onSave, onClose }: Motorist
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
+            {/* Matrícula — gerada automaticamente, editável */}
+            <View style={mat.wrap}>
+              <Text style={[f.label, { color: colors.mutedForeground }]}>
+                MATRÍCULA
+              </Text>
+              <View style={[mat.row, { borderColor: colors.border, backgroundColor: colors.input }]}>
+                <TextInput
+                  style={[mat.input, { color: colors.foreground }]}
+                  value={form.matricula}
+                  onChangeText={(v) => set("matricula")(v.toUpperCase())}
+                  placeholder="THB-00000"
+                  placeholderTextColor={colors.mutedForeground}
+                  autoCapitalize="characters"
+                  maxLength={12}
+                />
+                <Pressable
+                  style={[mat.regenBtn, { backgroundColor: colors.primary + "18" }]}
+                  onPress={() => set("matricula")(gerarMatricula())}
+                  hitSlop={6}
+                >
+                  <RefreshCw size={14} color={colors.primary} />
+                </Pressable>
+              </View>
+              <Text style={[f.hint, { color: colors.mutedForeground }]}>
+                Gerado automaticamente — edite para usar a matrícula real
+              </Text>
+            </View>
+
             <Field
               label="Nome completo"
               value={form.nome}
@@ -278,6 +308,22 @@ export function MotoristaModal({ visible, motorista, onSave, onClose }: Motorist
     </Modal>
   );
 }
+
+const mat = StyleSheet.create({
+  wrap: { marginBottom: 14 },
+  row: {
+    flexDirection: "row", alignItems: "center",
+    borderWidth: 1, borderRadius: 14, overflow: "hidden",
+  },
+  input: {
+    flex: 1, paddingHorizontal: 14, paddingVertical: 12,
+    fontSize: 15, fontFamily: "Inter_600SemiBold", letterSpacing: 1,
+  },
+  regenBtn: {
+    paddingHorizontal: 14, paddingVertical: 12,
+    alignItems: "center", justifyContent: "center",
+  },
+});
 
 const styles = StyleSheet.create({
   overlay: {
