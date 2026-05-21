@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
-import { useSettings } from "@/contexts/SettingsContext";
+import { motoristaNomes, useSettings } from "@/contexts/SettingsContext";
 
 // ── PIN Dots ───────────────────────────────────────────────────────────────
 function PinDots({ filled, total, error }: { filled: number; total: number; error?: boolean }) {
@@ -238,13 +238,17 @@ export function LoginScreen() {
     const next = pinDigits + d;
     setPinDigits(next);
     if (next.length === 4) {
-      const ok = loginMotorista(selectedName!, next, settings.motoristaPins);
+      // Monta mapa de PINs a partir dos objetos Motorista
+      const pins = Object.fromEntries(
+        settings.motoristas.map((m) => [m.nome, m.pin || "0000"])
+      );
+      const ok = loginMotorista(selectedName!, next, pins);
       if (!ok) {
         setPinError(true);
         setTimeout(() => { setPinDigits(""); setPinError(false); }, 900);
       }
     }
-  }, [pinDigits, selectedName, loginMotorista, settings.motoristaPins]);
+  }, [pinDigits, selectedName, loginMotorista, settings.motoristas]);
 
   const handleDelete = useCallback(() => {
     setPinError(false);
@@ -332,7 +336,7 @@ export function LoginScreen() {
       {/* ── Dropdown Modal ── */}
       <NamePickerModal
         visible={dropdownOpen}
-        names={settings.motoristas}
+        names={motoristaNomes(settings.motoristas)}
         selected={selectedName}
         onSelect={selectName}
         onClose={() => setDropdownOpen(false)}

@@ -28,7 +28,7 @@ import type {
 } from "@/contexts/CautelaContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCautela } from "@/contexts/CautelaContext";
-import { useSettings } from "@/contexts/SettingsContext";
+import { motoristaNomes, useSettings } from "@/contexts/SettingsContext";
 import { useColors } from "@/hooks/useColors";
 
 const OPERACOES = ["MANAUS", "BOA VISTA", "MADEIRA", "ITACOATIARA", "IRANDUBA", "MANACAPURU", "Outro"];
@@ -200,8 +200,8 @@ export default function NovaCautelaScreen() {
   // Motorista travado quando logado como motorista; admin pode escolher
   const motoristaLocked = !!user && !user.isAdmin;
 
-  // Listas dinâmicas vindas das Configurações (gerenciadas pelo gestor)
-  const MOTORISTAS = settings.motoristas;
+  // Listas dinâmicas: apenas motoristas ativos (objetos → nomes)
+  const MOTORISTAS = motoristaNomes(settings.motoristas);
   const PLACAS_CAVALO = settings.placasCavalo;
   const topPad = Platform.OS === "web" ? 0 : insets.top;
   const botPad = Platform.OS === "web" ? 100 : 0;
