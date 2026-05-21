@@ -33,7 +33,7 @@ export default function HistoricoScreen() {
   const [exporting, setExporting] = useState(false);
 
   const topPad = Platform.OS === "web" ? 0 : insets.top;
-  const botPad = Platform.OS === "web" ? 34 : 0;
+  const botPad = Platform.OS === "web" ? 100 : 0;
 
   const filtered = cauteias.filter((c) => {
     const matchStatus = filter === "todos" || c.status === filter;

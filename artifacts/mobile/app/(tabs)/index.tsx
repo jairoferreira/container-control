@@ -73,7 +73,7 @@ export default function DashboardScreen() {
       ]);
     }
   }
-  const botPad = Platform.OS === "web" ? 34 : 0;
+  const botPad = Platform.OS === "web" ? 100 : 0;
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}> 
