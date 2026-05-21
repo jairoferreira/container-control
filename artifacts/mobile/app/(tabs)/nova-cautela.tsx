@@ -6,7 +6,6 @@ import {
   Alert,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -29,7 +28,6 @@ export default function NovaCautelaScreen() {
   const topPad = Platform.OS === "web" ? 0 : insets.top;
   const botPad = Platform.OS === "web" ? 34 : 0;
 
-  // Gera número de controle automático: NNN/AAAA
   const numeroControle = useMemo(() => {
     const year = new Date().getFullYear();
     const nums = cauteias
@@ -38,6 +36,7 @@ export default function NovaCautelaScreen() {
     const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
     return `${String(next).padStart(3, "0")}/${year}`;
   }, [cauteias]);
+
   const [dataMov, setDataMov] = useState("");
   const [origemLocal, setOrigemLocal] = useState("");
   const [booking, setBooking] = useState("");
@@ -66,6 +65,7 @@ export default function NovaCautelaScreen() {
       Alert.alert("Atenção", "Informe o Nº de Controle.");
       return;
     }
+
     addCautela({
       numeroControle,
       dataMov,
@@ -91,17 +91,19 @@ export default function NovaCautelaScreen() {
       rg,
       recebedor,
     });
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.replace("/(tabs)/historico");
   }
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: topPad + 16 }]}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}> 
+      <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: topPad + 16 }]}> 
         <View>
           <Text style={styles.headerTitle}>NOVA CAUTELA</Text>
           <Text style={styles.headerSub}>Movimentação de Contêiner</Text>
         </View>
+
         <Pressable style={styles.saveBtn} onPress={handleSalvar}>
           <Save size={18} color="#fff" />
           <Text style={styles.saveBtnText}>Salvar</Text>
@@ -114,22 +116,18 @@ export default function NovaCautelaScreen() {
         bottomOffset={20}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}> 
           <SectionHeader title="Identificação" />
           <View style={styles.ctrlRow}>
             <Text style={[styles.ctrlLabel, { color: colors.mutedForeground }]}>Nº DE CONTROLE</Text>
-            <Text style={[styles.ctrlValue, { backgroundColor: colors.muted, color: colors.primary }]}>
+            <Text style={[styles.ctrlValue, { backgroundColor: colors.muted, color: colors.primary }]}> 
               {numeroControle}
             </Text>
           </View>
-          <DateField
-            label="Data da Movimentação"
-            value={dataMov}
-            onChange={setDataMov}
-          />
+          <DateField label="Data da Movimentação" value={dataMov} onChange={setDataMov} />
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}> 
           <SectionHeader title="Origem" subtitle="Dados do local de saída" />
           <FormField
             label="Local"
@@ -145,18 +143,10 @@ export default function NovaCautelaScreen() {
           />
           <View style={styles.row}>
             <View style={styles.half}>
-              <DateField
-                label="Data"
-                value={origemData}
-                onChange={setOrigemData}
-              />
+              <DateField label="Data" value={origemData} onChange={setOrigemData} />
             </View>
             <View style={styles.half}>
-              <TimeField
-                label="Horário"
-                value={origemHorario}
-                onChange={setOrigemHorario}
-              />
+              <TimeField label="Horário" value={origemHorario} onChange={setOrigemHorario} />
             </View>
           </View>
           <FormField
@@ -189,7 +179,7 @@ export default function NovaCautelaScreen() {
           />
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}> 
           <SectionHeader title="Destino" subtitle="Dados do local de chegada" />
           <FormField
             label="Local"
@@ -199,18 +189,10 @@ export default function NovaCautelaScreen() {
           />
           <View style={styles.row}>
             <View style={styles.half}>
-              <DateField
-                label="Data"
-                value={destinoData}
-                onChange={setDestinoData}
-              />
+              <DateField label="Data" value={destinoData} onChange={setDestinoData} />
             </View>
             <View style={styles.half}>
-              <TimeField
-                label="Horário"
-                value={destinoHorario}
-                onChange={setDestinoHorario}
-              />
+              <TimeField label="Horário" value={destinoHorario} onChange={setDestinoHorario} />
             </View>
           </View>
           <FormField
@@ -261,10 +243,8 @@ export default function NovaCautelaScreen() {
                 style={[
                   styles.toggleBtn,
                   {
-                    backgroundColor:
-                      tipoCabinete === tipo ? colors.primary : colors.muted,
-                    borderColor:
-                      tipoCabinete === tipo ? colors.primary : colors.border,
+                    backgroundColor: tipoCabinete === tipo ? colors.primary : colors.muted,
+                    borderColor: tipoCabinete === tipo ? colors.primary : colors.border,
                   },
                 ]}
                 onPress={() => setTipoCabinete(tipo)}
@@ -286,7 +266,7 @@ export default function NovaCautelaScreen() {
           </View>
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}> 
           <SectionHeader title="Transportador" subtitle="Responsáveis pela movimentação" />
           <FormField
             label="Transportador"
@@ -337,13 +317,15 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   header: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 24,
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-between",
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontFamily: "Inter_700Bold",
     color: "#ffffff",
     letterSpacing: 0.5,
@@ -351,48 +333,65 @@ const styles = StyleSheet.create({
   headerSub: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.65)",
-    marginTop: 2,
+    color: "rgba(255,255,255,0.78)",
+    marginTop: 4,
   },
   saveBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     backgroundColor: "rgba(255,255,255,0.18)",
     paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 10,
+    paddingVertical: 10,
+    borderRadius: 16,
   },
   saveBtnText: {
     color: "#fff",
     fontFamily: "Inter_600SemiBold",
     fontSize: 13,
   },
-  content: { padding: 12, gap: 8 },
-  card: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 12,
-    overflow: "hidden",
+  content: {
+    padding: 20,
+    gap: 14,
   },
-  row: { flexDirection: "row", gap: 8 },
-  half: { flex: 1 },
+  card: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 18,
+    overflow: "hidden",
+    shadowColor: "rgba(15,23,42,0.06)",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 3,
+  },
+  row: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  half: {
+    flex: 1,
+  },
   fieldLabel: {
     fontSize: 12,
     fontFamily: "Inter_500Medium",
-    marginBottom: 8,
+    marginBottom: 10,
     textTransform: "uppercase",
-    letterSpacing: 0.4,
+    letterSpacing: 0.35,
   },
-  toggleRow: { flexDirection: "row", gap: 8, marginBottom: 10 },
+  toggleRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 8,
+  },
   toggleBtn: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    paddingVertical: 9,
-    borderRadius: 9,
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 16,
     borderWidth: 1.5,
   },
   toggleText: {
@@ -403,8 +402,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 10,
-    paddingBottom: 10,
+    marginBottom: 14,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
   },
@@ -414,20 +413,21 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   ctrlValue: {
-    fontSize: 17,
+    fontSize: 18,
     fontFamily: "Inter_700Bold",
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 14,
     overflow: "hidden",
   },
   submitBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 11,
+    gap: 10,
+    paddingVertical: 16,
+    borderRadius: 18,
+    marginTop: 10,
   },
   submitText: {
     fontSize: 16,

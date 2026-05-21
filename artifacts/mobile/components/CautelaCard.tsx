@@ -24,19 +24,21 @@ export function CautelaCard({ cautela }: CautelaCardProps) {
     <Pressable
       style={({ pressed }) => [
         styles.card,
-        { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          opacity: pressed ? 0.88 : 1,
+        },
       ]}
       onPress={() => router.push(`/cautela/${cautela.id}`)}
     >
       <View style={styles.row}>
         <View style={styles.left}>
-          <View style={[styles.iconWrap, { backgroundColor: colors.primary + "14" }]}>
+          <View style={[styles.iconWrap, { backgroundColor: colors.primary + "22" }]}> 
             <Box size={20} color={colors.primary} />
           </View>
           <View style={styles.info}>
-            <Text style={[styles.numero, { color: colors.foreground }]}>
-              #{cautela.numeroControle}
-            </Text>
+            <Text style={[styles.numero, { color: colors.foreground }]}>{`#${cautela.numeroControle}`}</Text>
             <Text style={[styles.container, { color: colors.mutedForeground }]} numberOfLines={1}>
               {cautela.conteiner || "—"} · {cautela.origemLocal || "—"} → {cautela.destinoLocal || "—"}
             </Text>
@@ -44,10 +46,10 @@ export function CautelaCard({ cautela }: CautelaCardProps) {
           </View>
         </View>
         <View style={styles.right}>
-          <View style={[styles.badge, { backgroundColor: color + "20" }]}>
+          <View style={[styles.badge, { backgroundColor: color + "22" }]}> 
             <Text style={[styles.badgeText, { color }]}>{label}</Text>
           </View>
-          <ChevronRight size={16} color={colors.mutedForeground} />
+          <ChevronRight size={18} color={colors.mutedForeground} />
         </View>
       </View>
     </Pressable>
@@ -56,15 +58,15 @@ export function CautelaCard({ cautela }: CautelaCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 20,
+    padding: 18,
     borderWidth: 1,
-    marginBottom: 10,
-    elevation: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
+    marginBottom: 14,
+    shadowColor: "rgba(15,23,42,0.12)",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 6,
   },
   row: {
     flexDirection: "row",
@@ -75,39 +77,39 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
-    gap: 12,
+    gap: 14,
   },
   iconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 11,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
   info: { flex: 1 },
   numero: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: "Inter_600SemiBold",
   },
   container: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",
-    marginTop: 2,
+    marginTop: 6,
   },
   date: {
     fontSize: 11,
     fontFamily: "Inter_400Regular",
-    marginTop: 2,
+    marginTop: 6,
   },
   right: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
   },
   badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
   badgeText: {
     fontSize: 11,

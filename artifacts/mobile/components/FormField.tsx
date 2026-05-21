@@ -18,7 +18,11 @@ export function FormField({ label, required, style, ...props }: FormFieldProps) 
       <TextInput
         style={[
           styles.input,
-          { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground },
+          {
+            backgroundColor: colors.input,
+            borderColor: colors.border,
+            color: colors.foreground,
+          },
           style,
         ]}
         placeholderTextColor={colors.mutedForeground}
@@ -29,20 +33,21 @@ export function FormField({ label, required, style, ...props }: FormFieldProps) 
 }
 
 const styles = StyleSheet.create({
-  wrap: { marginBottom: 10 },
+  wrap: { marginBottom: 14 },
   label: {
     fontSize: 11,
     fontFamily: "Inter_500Medium",
-    marginBottom: 4,
+    marginBottom: 6,
     textTransform: "uppercase",
-    letterSpacing: 0.4,
+    letterSpacing: 0.35,
   },
   input: {
     borderWidth: 1,
-    borderRadius: 9,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
     fontSize: 14,
     fontFamily: "Inter_400Regular",
+    minHeight: 48,
   },
 });

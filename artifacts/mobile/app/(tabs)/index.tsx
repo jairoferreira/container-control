@@ -18,7 +18,7 @@ import { useColors } from "@/hooks/useColors";
 
 function MiniStat({ label, value, accent }: { label: string; value: number; accent: string }) {
   return (
-    <View style={mini.wrap}>
+    <View style={[mini.wrap, { borderColor: accent + "22" }]}> 
       <Text style={[mini.value, { color: accent }]}>{value}</Text>
       <Text style={mini.label}>{label}</Text>
     </View>
@@ -26,12 +26,29 @@ function MiniStat({ label, value, accent }: { label: string; value: number; acce
 }
 
 const mini = StyleSheet.create({
-  wrap: { alignItems: "center", flex: 1 },
-  value: { fontSize: 22, fontFamily: "Inter_700Bold", lineHeight: 24 },
+  wrap: {
+    flex: 1,
+    minWidth: 72,
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    borderColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  value: {
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
+    lineHeight: 26,
+  },
   label: {
-    fontSize: 9, fontFamily: "Inter_500Medium",
-    color: "rgba(255,255,255,0.5)", textTransform: "uppercase",
-    letterSpacing: 0.5, marginTop: 2,
+    fontSize: 9,
+    fontFamily: "Inter_500Medium",
+    color: "rgba(255,255,255,0.72)",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginTop: 4,
   },
 });
 
@@ -44,22 +61,19 @@ export default function DashboardScreen() {
   const botPad = Platform.OS === "web" ? 34 : 0;
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
-
+    <View style={[styles.root, { backgroundColor: colors.background }]}> 
       <LinearGradient
-        colors={["#0b1340", "#1a2361", "#1e3a8a"]}
+        colors={["#101f3b", "#1e3a8a", "#4f46e5"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: topPad + 10 }]}
+        style={[styles.header, { paddingTop: topPad + 24 }]}
       >
-        {/* ── Topo: texto esquerda + logo direita ── */}
         <View style={styles.topRow}>
           <View style={styles.topLeft}>
             <Text style={styles.company}>THIBA LOGÍSTICA</Text>
-            <Text style={styles.title}>CONTROLE DE{"\n"}CAUTELAS</Text>
-            <Text style={styles.sub}>Movimentação de Contêineres</Text>
+            <Text style={styles.title}>CONTROLE DE{`\n`}CAUTELAS</Text>
+            <Text style={styles.sub}>Movimentação de contêineres em um só lugar</Text>
           </View>
-
           <View style={styles.topRight}>
             <View style={styles.logoWrap}>
               <Image
@@ -68,58 +82,43 @@ export default function DashboardScreen() {
                 contentFit="contain"
               />
             </View>
-            <Pressable
-              style={styles.addBtn}
-              onPress={() => router.push("/(tabs)/nova-cautela")}
-            >
-              <Plus size={16} color="#fff" />
+            <Pressable style={styles.addBtn} onPress={() => router.push("/(tabs)/nova-cautela")}> 
+              <Plus size={18} color="#fff" />
             </Pressable>
           </View>
         </View>
 
-        {/* ── Barra de stats ── */}
-        <View style={styles.divider} />
         <View style={styles.statsRow}>
-          <MiniStat label="Total"      value={stats.total}     accent="#60a5fa" />
-          <View style={styles.sep} />
-          <MiniStat label="Pendentes"  value={stats.pendentes} accent="#f59e0b" />
-          <View style={styles.sep} />
+          <MiniStat label="Total" value={stats.total} accent="#60a5fa" />
+          <MiniStat label="Pendentes" value={stats.pendentes} accent="#f59e0b" />
           <MiniStat label="Concluídas" value={stats.concluidas} accent="#22c55e" />
-          <View style={styles.sep} />
           <MiniStat label="Canceladas" value={stats.canceladas} accent="#ef4444" />
         </View>
       </LinearGradient>
 
-      {/* ── Lista recente ── */}
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: botPad + 16 }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.sectionRow}>
-          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-            MOVIMENTAÇÕES RECENTES
+          <Text style={[styles.sectionLabel, { color: colors.secondary }]}> 
+            Movimentações recentes
           </Text>
-          <Pressable onPress={() => router.push("/(tabs)/historico")}>
-            <Text style={[styles.verTudo, { color: colors.secondary }]}>Ver tudo</Text>
+          <Pressable onPress={() => router.push("/(tabs)/historico")}> 
+            <Text style={[styles.verTudo, { color: colors.primary }]}>Ver tudo</Text>
           </Pressable>
         </View>
 
         {recent.length === 0 ? (
-          <View style={[styles.empty, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.empty, { backgroundColor: colors.card, borderColor: colors.border }]}> 
             <Inbox size={32} color={colors.mutedForeground} />
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-              Nenhuma cautela registrada
-            </Text>
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-              Toque em + para registrar a primeira movimentação
-            </Text>
+            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Nenhuma cautela registrada</Text>
+            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>Toque em + para registrar a primeira movimentação</Text>
             <Pressable
               style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
               onPress={() => router.push("/(tabs)/nova-cautela")}
             >
-              <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-                Nova Cautela
-              </Text>
+              <Text style={styles.emptyBtnText}>Nova Cautela</Text>
             </Pressable>
           </View>
         ) : (
@@ -133,93 +132,118 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
 
-  /* Header */
-  header: { paddingHorizontal: 16, paddingBottom: 14 },
-
+  header: {
+    paddingHorizontal: 20,
+    paddingBottom: 26,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+  },
   topRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    marginBottom: 12,
+    marginBottom: 22,
   },
-  topLeft: { flex: 1, paddingRight: 10 },
+  topLeft: { flex: 1, paddingRight: 12 },
   company: {
-    fontSize: 9,
-    fontFamily: "Inter_600SemiBold",
-    color: "rgba(255,255,255,0.55)",
-    letterSpacing: 1.4,
+    fontSize: 10,
+    fontFamily: "Cochin",
+    color: "rgba(255,255,255,0.8)",
+    letterSpacing: 1.5,
     textTransform: "uppercase",
-    marginBottom: 4,
+    marginBottom: 6,
   },
   title: {
-    fontSize: 22,
-    fontFamily: "Inter_700Bold",
+    fontSize: 28,
+    fontFamily: "Cochin",
     color: "#fff",
     letterSpacing: 0.2,
-    lineHeight: 26,
+    lineHeight: 34,
   },
   sub: {
-    fontSize: 10,
-    fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.45)",
-    marginTop: 4,
+    fontSize: 12,
+    fontFamily: "Cochin",
+    color: "rgba(255,255,255,0.75)",
+    marginTop: 8,
+    lineHeight: 18,
   },
-
-  topRight: { alignItems: "center", gap: 8 },
+  topRight: { alignItems: "center", gap: 10 },
   logoWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: "#fff",
+    width: 64,
+    height: 64,
+    borderRadius: 18,
+    backgroundColor: "#ffffff",
     alignItems: "center",
     justifyContent: "center",
-    padding: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
+    padding: 6,
+    shadowColor: "rgba(0,0,0,0.12)",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
     elevation: 5,
   },
-  logo: { width: 50, height: 50, borderRadius: 9 },
+  logo: { width: 52, height: 52, borderRadius: 14 },
   addBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.18)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
+    borderColor: "rgba(255,255,255,0.22)",
     alignItems: "center",
     justifyContent: "center",
   },
 
-  divider: { height: 1, backgroundColor: "rgba(255,255,255,0.12)", marginBottom: 12 },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
 
-  statsRow: { flexDirection: "row", alignItems: "center" },
-  sep: { width: 1, height: 26, backgroundColor: "rgba(255,255,255,0.15)" },
-
-  /* Content */
-  content: { padding: 12 },
+  content: { paddingHorizontal: 20, paddingTop: 20 },
   sectionRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 10,
+    marginBottom: 14,
   },
   sectionLabel: {
-    fontSize: 10,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 0.8,
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
     textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
-  verTudo: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  verTudo: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+  },
   empty: {
-    borderRadius: 12,
+    borderRadius: 22,
     borderWidth: 1,
-    padding: 24,
+    padding: 28,
     alignItems: "center",
-    gap: 6,
+    gap: 8,
   },
-  emptyTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold", marginTop: 6 },
-  emptyText: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center" },
-  emptyBtn: { marginTop: 10, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 9 },
+  emptyTitle: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    marginTop: 8,
+  },
+  emptyText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  emptyBtn: {
+    marginTop: 14,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 16,
+  },
+  emptyBtnText: {
+    color: "#fff",
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
+  },
 });

@@ -6,7 +6,7 @@ import { useColors } from "@/hooks/useColors";
 
 interface TimeFieldProps {
   label: string;
-  value: string; // HH:MM
+  value: string;
   onChange: (time: string) => void;
 }
 
@@ -28,15 +28,14 @@ export function TimeField({ label, value, onChange }: TimeFieldProps) {
   const colors = useColors();
   const [open, setOpen] = useState(false);
 
-  // ── WEB: input type="time" nativo do browser ──────────────────────
   if (Platform.OS === "web") {
     const Input = "input" as unknown as React.ElementType;
     return (
       <View style={styles.wrap}>
-        <Text style={[styles.label, { color: colors.mutedForeground }]}>
+        <Text style={[styles.label, { color: colors.mutedForeground }]}> 
           {label.toUpperCase()}
         </Text>
-        <View style={[styles.webWrap, { borderColor: colors.border }]}>
+        <View style={[styles.webWrap, { borderColor: colors.border, backgroundColor: colors.input }]}> 
           <Clock size={14} color={colors.primary} style={styles.icon} />
           <Input
             type="time"
@@ -59,18 +58,17 @@ export function TimeField({ label, value, onChange }: TimeFieldProps) {
     );
   }
 
-  // ── NATIVE: botão que abre o relógio nativo ───────────────────────
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.label, { color: colors.mutedForeground }]}>
+      <Text style={[styles.label, { color: colors.mutedForeground }]}> 
         {label.toUpperCase()}
       </Text>
       <Pressable
-        style={[styles.nativeBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
+        style={[styles.nativeBtn, { borderColor: colors.border, backgroundColor: colors.input }]}
         onPress={() => setOpen(true)}
       >
         <Clock size={16} color={colors.primary} />
-        <Text style={[styles.nativeBtnText, { color: value ? colors.foreground : colors.mutedForeground }]}>
+        <Text style={[styles.nativeBtnText, { color: value ? colors.foreground : colors.mutedForeground }]}> 
           {value || "Selecionar horário"}
         </Text>
       </Pressable>
@@ -93,26 +91,33 @@ export function TimeField({ label, value, onChange }: TimeFieldProps) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { marginBottom: 10 },
-  label: { fontSize: 11, fontFamily: "Inter_500Medium", marginBottom: 4, letterSpacing: 0.4 },
+  wrap: { marginBottom: 14 },
+  label: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    marginBottom: 6,
+    letterSpacing: 0.35,
+  },
   icon: { marginRight: 6 },
   webWrap: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: "#fff",
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   nativeBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
     borderWidth: 1,
-    borderRadius: 9,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
-  nativeBtnText: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  nativeBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+  },
 });

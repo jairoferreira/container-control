@@ -11,7 +11,7 @@ export function SectionHeader({ title, subtitle }: SectionHeaderProps) {
   const colors = useColors();
   return (
     <View style={[styles.wrap, { backgroundColor: colors.primary }]}>
-      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.title}>{title.toUpperCase()}</Text>
       {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
     </View>
   );
@@ -19,22 +19,22 @@ export function SectionHeader({ title, subtitle }: SectionHeaderProps) {
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    marginBottom: 10,
-    marginHorizontal: -12,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 16,
   },
   title: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: "Inter_700Bold",
-    color: "rgba(255,255,255,0.9)",
-    textTransform: "uppercase",
-    letterSpacing: 1,
+    color: "#ffffff",
+    letterSpacing: 0.8,
   },
   subtitle: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.6)",
-    marginTop: 2,
+    color: "rgba(255,255,255,0.78)",
+    marginTop: 4,
+    lineHeight: 16,
   },
 });

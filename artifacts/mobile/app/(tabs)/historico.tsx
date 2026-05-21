@@ -49,7 +49,7 @@ export default function HistoricoScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: topPad + 16 }]}>
+      <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: topPad + 20 }]}> 
         <View>
           <Text style={styles.headerTitle}>HISTÓRICO</Text>
           <Text style={styles.headerSub}>Todas as movimentações</Text>
@@ -62,8 +62,8 @@ export default function HistoricoScreen() {
         </Pressable>
       </View>
 
-      <View style={[styles.searchWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Search size={16} color={colors.mutedForeground} />
+      <View style={[styles.searchWrap, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+        <Search size={18} color={colors.mutedForeground} />
         <TextInput
           style={[styles.searchInput, { color: colors.foreground }]}
           placeholder="Pesquisar cautela..."
@@ -73,7 +73,7 @@ export default function HistoricoScreen() {
         />
         {search.length > 0 && (
           <Pressable onPress={() => setSearch("")}>
-            <X size={16} color={colors.mutedForeground} />
+            <X size={18} color={colors.mutedForeground} />
           </Pressable>
         )}
       </View>
@@ -111,12 +111,12 @@ export default function HistoricoScreen() {
         scrollEnabled={!!filtered.length}
         renderItem={({ item }) => <CautelaCard cautela={item} />}
         ListEmptyComponent={
-          <View style={[styles.empty, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.empty, { backgroundColor: colors.card, borderColor: colors.border }]}> 
             <Inbox size={36} color={colors.mutedForeground} />
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+            <Text style={[styles.emptyTitle, { color: colors.foreground }]}> 
               {search || filter !== "todos" ? "Nenhum resultado" : "Sem movimentações"}
             </Text>
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}> 
               {search || filter !== "todos"
                 ? "Tente outros filtros ou termos"
                 : "Registre sua primeira cautela"}
@@ -132,13 +132,15 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   header: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 22,
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-between",
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontFamily: "Inter_700Bold",
     color: "#ffffff",
     letterSpacing: 0.5,
@@ -146,27 +148,32 @@ const styles = StyleSheet.create({
   headerSub: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.65)",
-    marginTop: 2,
+    color: "rgba(255,255,255,0.75)",
+    marginTop: 4,
   },
   addBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.16)",
     alignItems: "center",
     justifyContent: "center",
   },
   searchWrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginHorizontal: 16,
-    marginTop: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
+    gap: 12,
+    marginHorizontal: 18,
+    marginTop: -20,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 18,
     borderWidth: 1,
+    shadowColor: "rgba(15,23,42,0.06)",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 4,
   },
   searchInput: {
     flex: 1,
@@ -176,28 +183,29 @@ const styles = StyleSheet.create({
   },
   filterRow: {
     flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: 16,
-    marginTop: 12,
+    flexWrap: "wrap",
+    gap: 10,
+    paddingHorizontal: 18,
+    marginTop: 16,
     marginBottom: 4,
   },
   filterBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 18,
     borderWidth: 1,
   },
   filterText: {
     fontSize: 12,
     fontFamily: "Inter_500Medium",
   },
-  list: { padding: 16, paddingTop: 12 },
+  list: { paddingHorizontal: 18, paddingTop: 12 },
   empty: {
-    borderRadius: 14,
+    borderRadius: 20,
     borderWidth: 1,
-    padding: 40,
+    padding: 36,
     alignItems: "center",
-    gap: 8,
+    gap: 10,
     marginTop: 20,
   },
   emptyTitle: {
@@ -209,5 +217,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     textAlign: "center",
+    lineHeight: 20,
   },
 });
