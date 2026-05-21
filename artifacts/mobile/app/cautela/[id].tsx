@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowLeft, ArrowUp, CheckCircle, FileText, XCircle } from "lucide-react-native";
+import { ArrowDown, ArrowLeft, ArrowUp, CheckCircle, FileText, MapPin, XCircle } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
@@ -10,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -49,16 +50,74 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+// ── Campo de texto para o formulário de finalização ───────────────────────────
+function FinalField({
+  label, value, onChange, placeholder, keyboardType, maxLength, autoCapitalize,
+}: {
+  label: string; value: string; onChange: (v: string) => void;
+  placeholder?: string; keyboardType?: "default" | "numeric" | "phone-pad";
+  maxLength?: number;
+  autoCapitalize?: "none" | "words" | "characters" | "sentences";
+}) {
+  const colors = useColors();
+  return (
+    <View style={ff.wrap}>
+      <Text style={[ff.label, { color: colors.mutedForeground }]}>{label.toUpperCase()}</Text>
+      <TextInput
+        style={[ff.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.input }]}
+        value={value}
+        onChangeText={onChange}
+        placeholder={placeholder}
+        placeholderTextColor={colors.mutedForeground}
+        keyboardType={keyboardType ?? "default"}
+        maxLength={maxLength}
+        autoCapitalize={autoCapitalize ?? "words"}
+        returnKeyType="next"
+      />
+    </View>
+  );
+}
+const ff = StyleSheet.create({
+  wrap: { marginBottom: 12 },
+  label: { fontSize: 10, fontFamily: "Inter_500Medium", letterSpacing: 0.5, marginBottom: 6 },
+  input: {
+    borderWidth: 1, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 11,
+    fontSize: 14, fontFamily: "Inter_400Regular",
+  },
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
 export default function CautelaDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getCautela, updateStatus } = useCautela();
+  const { getCautela, updateStatus, finalizarCautela } = useCautela();
   const cautela = getCautela(id);
 
   const topPad = Platform.OS === "web" ? 0 : insets.top;
   const botPad = Platform.OS === "web" ? 34 : 0;
   const [generatingPDF, setGeneratingPDF] = useState(false);
+
+  // ── Finalização ─────────────────────────────────────────────────────────
+  const [finalizando, setFinalizando] = useState(false);
+  const [fDestData,    setFDestData]    = useState("");
+  const [fDestHorario, setFDestHorario] = useState("");
+  const [fRecebedor,   setFRecebedor]   = useState("");
+  const [fRG,          setFRG]          = useState("");
+
+  // Máscaras simples
+  function maskDate(raw: string): string {
+    const d = raw.replace(/\D/g, "").slice(0, 8);
+    if (d.length <= 2) return d;
+    if (d.length <= 4) return `${d.slice(0,2)}/${d.slice(2)}`;
+    return `${d.slice(0,2)}/${d.slice(2,4)}/${d.slice(4)}`;
+  }
+  function maskTime(raw: string): string {
+    const d = raw.replace(/\D/g, "").slice(0, 4);
+    if (d.length <= 2) return d;
+    return `${d.slice(0,2)}:${d.slice(2)}`;
+  }
 
   if (!cautela) {
     return (
@@ -84,27 +143,47 @@ export default function CautelaDetailScreen() {
     }
   }
 
-  function handleStatus(status: StatusCautela) {
-    const msg = status === "concluida" ? "Marcar como concluída?" : "Cancelar esta cautela?";
+  function handleCancelar() {
+    const msg = "Cancelar esta cautela?";
     const execute = () => {
-      updateStatus(cautela!.id, status);
-      if (Platform.OS !== "web") {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      updateStatus(cautela!.id, "cancelada");
+      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     };
-    if (Platform.OS === "web") {
-      if (window.confirm(msg)) execute();
-      return;
-    }
+    if (Platform.OS === "web") { if (window.confirm(msg)) execute(); return; }
     Alert.alert("Confirmar", msg, [
       { text: "Não", style: "cancel" },
-      { text: "Sim", style: status === "cancelada" ? "destructive" : "default", onPress: execute },
+      { text: "Cancelar cautela", style: "destructive", onPress: execute },
+    ]);
+  }
+
+  function handleFinalizar() {
+    if (!fDestData || !fDestHorario || !fRecebedor) {
+      const msg = "Preencha pelo menos Data de Entrega, Horário e Recebedor.";
+      if (Platform.OS === "web") { alert(msg); return; }
+      Alert.alert("Campos obrigatórios", msg);
+      return;
+    }
+    const msg = "Confirmar entrega e marcar como Concluída?";
+    const execute = () => {
+      finalizarCautela(cautela!.id, {
+        destinoData: fDestData,
+        destinoHorario: fDestHorario,
+        recebedor: fRecebedor,
+        rg: fRG,
+      });
+      setFinalizando(false);
+      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    };
+    if (Platform.OS === "web") { if (window.confirm(msg)) execute(); return; }
+    Alert.alert("Finalizar cautela", msg, [
+      { text: "Voltar", style: "cancel" },
+      { text: "Confirmar entrega", style: "default", onPress: execute },
     ]);
   }
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      {/* ── Cabeçalho ── */}
+      {/* ── Cabeçalho ─────────────────────────────────────────────────── */}
       <View style={[styles.header, { backgroundColor: isSaindo ? "#1e3a8a" : "#15803d", paddingTop: topPad + 16 }]}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
           <ArrowLeft size={20} color="#fff" />
@@ -133,6 +212,7 @@ export default function CautelaDetailScreen() {
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* IDENTIFICAÇÃO */}
         <Section title="IDENTIFICAÇÃO">
@@ -195,26 +275,115 @@ export default function CautelaDetailScreen() {
           </Section>
         ) : null}
 
-        {/* AÇÕES */}
+        {/* ENTREGA (só aparece quando concluída E tem dados) */}
+        {cautela.status === "concluida" && cautela.recebedor ? (
+          <Section title="ENTREGA">
+            <InfoRow label="Data de Entrega"    value={cautela.destinoData} />
+            <InfoRow label="Horário"            value={cautela.destinoHorario} />
+            <InfoRow label="Recebedor"          value={cautela.recebedor} />
+            <InfoRow label="RG do Recebedor"    value={cautela.rg} />
+          </Section>
+        ) : null}
+
+        {/* ── AÇÕES ──────────────────────────────────────────────────── */}
         {cautela.status === "pendente" && (
-          <View style={styles.actions}>
-            <Pressable
-              style={[styles.actionBtn, { backgroundColor: "#22c55e" }]}
-              onPress={() => handleStatus("concluida")}
-            >
-              <CheckCircle size={18} color="#fff" />
-              <Text style={styles.actionText}>Marcar Concluída</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.actionBtn, { backgroundColor: "#ef4444" }]}
-              onPress={() => handleStatus("cancelada")}
-            >
-              <XCircle size={18} color="#fff" />
-              <Text style={styles.actionText}>Cancelar</Text>
-            </Pressable>
+          <View style={styles.actionsWrap}>
+
+            {/* ── Formulário de finalização ── */}
+            {finalizando ? (
+              <View style={[styles.finalizarCard, { backgroundColor: colors.card, borderColor: "#22c55e" }]}>
+                <View style={styles.finalizarHeader}>
+                  <MapPin size={16} color="#22c55e" />
+                  <Text style={[styles.finalizarTitle, { color: colors.foreground }]}>
+                    Dados de Entrega
+                  </Text>
+                </View>
+                <Text style={[styles.finalizarHint, { color: colors.mutedForeground }]}>
+                  Preencha os dados no momento da entrega para concluir a cautela.
+                </Text>
+
+                <View style={styles.dateTimeRow}>
+                  <View style={{ flex: 1 }}>
+                    <FinalField
+                      label="Data de entrega *"
+                      value={fDestData}
+                      onChange={(v) => setFDestData(maskDate(v))}
+                      placeholder="DD/MM/AAAA"
+                      keyboardType="numeric"
+                      maxLength={10}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <FinalField
+                      label="Horário *"
+                      value={fDestHorario}
+                      onChange={(v) => setFDestHorario(maskTime(v))}
+                      placeholder="HH:MM"
+                      keyboardType="numeric"
+                      maxLength={5}
+                    />
+                  </View>
+                </View>
+
+                <FinalField
+                  label="Recebedor *"
+                  value={fRecebedor}
+                  onChange={(v) => setFRecebedor(v.toUpperCase())}
+                  placeholder="Nome de quem recebe"
+                  autoCapitalize="characters"
+                />
+
+                <FinalField
+                  label="RG do recebedor"
+                  value={fRG}
+                  onChange={setFRG}
+                  placeholder="Opcional"
+                  autoCapitalize="none"
+                />
+
+                <View style={styles.finalizarBtns}>
+                  <Pressable
+                    style={[styles.finalizarBtn, { borderColor: colors.border }]}
+                    onPress={() => setFinalizando(false)}
+                  >
+                    <Text style={[styles.finalizarBtnText, { color: colors.mutedForeground }]}>
+                      Voltar
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.finalizarBtn, styles.finalizarBtnOk]}
+                    onPress={handleFinalizar}
+                  >
+                    <CheckCircle size={16} color="#fff" />
+                    <Text style={[styles.finalizarBtnText, { color: "#fff" }]}>
+                      Confirmar Entrega
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              /* ── Botões de ação ── */
+              <View style={styles.actions}>
+                <Pressable
+                  style={[styles.actionBtn, { backgroundColor: "#22c55e" }]}
+                  onPress={() => setFinalizando(true)}
+                >
+                  <CheckCircle size={18} color="#fff" />
+                  <Text style={styles.actionText}>Finalizar Cautela</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.actionBtn, { backgroundColor: "#ef4444" }]}
+                  onPress={handleCancelar}
+                >
+                  <XCircle size={18} color="#fff" />
+                  <Text style={styles.actionText}>Cancelar Cautela</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         )}
 
+        {/* ── Botão PDF (sempre visível) ───────────────────────────── */}
         <Pressable
           style={[styles.actionBtn, styles.pdfBtn]}
           onPress={handleGerarPDF}
@@ -235,100 +404,68 @@ export default function CautelaDetailScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   header: {
-    paddingHorizontal: 16,
-    paddingBottom: 18,
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
+    paddingHorizontal: 16, paddingBottom: 18,
+    flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between",
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 36, height: 36, borderRadius: 10,
     backgroundColor: "rgba(255,255,255,0.15)",
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: "center", justifyContent: "center",
   },
   headerCenter: { alignItems: "center", gap: 4 },
   directionRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   directionLabel: {
-    fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
-    color: "rgba(255,255,255,0.8)",
-    letterSpacing: 1,
+    fontSize: 11, fontFamily: "Inter_600SemiBold",
+    color: "rgba(255,255,255,0.8)", letterSpacing: 1,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
-    color: "#ffffff",
-  },
-  badge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-  },
+  headerTitle: { fontSize: 18, fontFamily: "Inter_700Bold", color: "#ffffff" },
+  badge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20 },
+  badgeText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+
   content: { padding: 16, gap: 14 },
-  section: {
-    borderRadius: 14,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
-  sectionHeader: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
+  section: { borderRadius: 14, borderWidth: 1, overflow: "hidden" },
+  sectionHeader: { paddingHorizontal: 16, paddingVertical: 10 },
   sectionTitle: {
-    fontSize: 11,
-    fontFamily: "Inter_700Bold",
-    color: "rgba(255,255,255,0.9)",
-    textTransform: "uppercase",
-    letterSpacing: 1,
+    fontSize: 11, fontFamily: "Inter_700Bold",
+    color: "rgba(255,255,255,0.9)", textTransform: "uppercase", letterSpacing: 1,
   },
   sectionContent: { padding: 14, gap: 2 },
   infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: "row", justifyContent: "space-between",
     paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E5E7EB",
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#E5E7EB",
   },
-  infoLabel: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    flex: 1,
-  },
-  infoValue: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-    flex: 1,
-    textAlign: "right",
-  },
+  infoLabel: { fontSize: 13, fontFamily: "Inter_400Regular", flex: 1 },
+  infoValue: { fontSize: 13, fontFamily: "Inter_600SemiBold", flex: 1, textAlign: "right" },
+
+  // Ações
+  actionsWrap: { gap: 0 },
   actions: { gap: 10 },
   actionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    paddingVertical: 15,
-    borderRadius: 13,
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 10, paddingVertical: 15, borderRadius: 13,
   },
-  actionText: {
-    fontSize: 15,
-    fontFamily: "Inter_700Bold",
-    color: "#fff",
+  actionText: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#fff" },
+  pdfBtn: { backgroundColor: "#EEF0FB", borderWidth: 1.5, borderColor: "#1a2361" },
+  pdfBtnText: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#1a2361" },
+
+  // Formulário de finalização
+  finalizarCard: {
+    borderRadius: 16, borderWidth: 1.5,
+    padding: 16, marginBottom: 10,
   },
-  pdfBtn: {
-    backgroundColor: "#EEF0FB",
-    borderWidth: 1.5,
-    borderColor: "#1a2361",
+  finalizarHeader: {
+    flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6,
   },
-  pdfBtnText: {
-    fontSize: 15,
-    fontFamily: "Inter_700Bold",
-    color: "#1a2361",
+  finalizarTitle: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  finalizarHint: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17, marginBottom: 14 },
+  dateTimeRow: { flexDirection: "row", gap: 10 },
+  finalizarBtns: { flexDirection: "row", gap: 10, marginTop: 4 },
+  finalizarBtn: {
+    flex: 1, paddingVertical: 13, borderRadius: 12,
+    borderWidth: 1, alignItems: "center",
+    flexDirection: "row", justifyContent: "center", gap: 6,
   },
+  finalizarBtnOk: { backgroundColor: "#22c55e", borderColor: "#22c55e" },
+  finalizarBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
 });

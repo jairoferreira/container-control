@@ -52,6 +52,12 @@ export interface Cautela {
   // Observações
   obs: string;
 
+  // Finalização (preenchidos na entrega)
+  destinoData?: string;     // DD/MM/AAAA
+  destinoHorario?: string;  // HH:MM
+  recebedor?: string;
+  rg?: string;
+
   // Controle de sync
   _synced?: boolean;
 }
@@ -66,6 +72,7 @@ interface CautelaContextType {
   cauteias: Cautela[];
   addCautela: (data: Omit<Cautela, "id" | "createdAt" | "status" | "_synced">) => void;
   updateStatus: (id: string, status: StatusCautela) => void;
+  finalizarCautela: (id: string, dados: { destinoData: string; destinoHorario: string; recebedor: string; rg: string }) => void;
   getCautela: (id: string) => Cautela | undefined;
   sincronizar: (apiUrl: string) => Promise<{ ok: number; erros: number }>;
   syncState: SyncState;
@@ -130,6 +137,19 @@ export function CautelaProvider({ children }: { children: React.ReactNode }) {
     (id: string, status: StatusCautela) => {
       persist(
         cauteias.map((c) => (c.id === id ? { ...c, status, _synced: false } : c))
+      );
+    },
+    [cauteias, persist]
+  );
+
+  const finalizarCautela = useCallback(
+    (id: string, dados: { destinoData: string; destinoHorario: string; recebedor: string; rg: string }) => {
+      persist(
+        cauteias.map((c) =>
+          c.id === id
+            ? { ...c, status: "concluida" as StatusCautela, ...dados, _synced: false }
+            : c
+        )
       );
     },
     [cauteias, persist]
@@ -219,7 +239,7 @@ export function CautelaProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CautelaContext.Provider
-      value={{ cauteias, addCautela, updateStatus, getCautela, sincronizar, syncState, stats }}
+      value={{ cauteias, addCautela, updateStatus, finalizarCautela, getCautela, sincronizar, syncState, stats }}
     >
       {children}
     </CautelaContext.Provider>
