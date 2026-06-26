@@ -56,3 +56,7 @@ Thumbs.db
 # Local project archives
 *.zip
 Container-control-main_RW_Carlos/
+
+# Logs de processos locais (dev)
+*.log
+run-api.ps1
