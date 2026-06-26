@@ -88,6 +88,13 @@ export class CautelaApi {
     });
   }
 
+  async atualizar(id: string, fields: Partial<Cautela>): Promise<Cautela> {
+    return this.request<Cautela>(`/cautelas/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(fields),
+    });
+  }
+
   async sincronizarLote(cautelas: Cautela[]): Promise<{ ok: number; erros: number }> {
     let ok = 0;
     let erros = 0;
@@ -104,7 +111,7 @@ export class CautelaApi {
 
   async testarConexao(): Promise<boolean> {
     try {
-      await this.request("/health");
+      await this.request("/healthz");
       return true;
     } catch {
       return false;

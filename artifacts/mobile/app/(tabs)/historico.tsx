@@ -16,6 +16,7 @@ import type { StatusCautela } from "@/contexts/CautelaContext";
 import { useCautela } from "@/contexts/CautelaContext";
 import { exportarCSV } from "@/lib/exportCautelasCSV";
 import { useColors } from "@/hooks/useColors";
+import { safeBottom, safeTop } from "@/hooks/useSafeAreaWeb";
 
 const FILTERS: { label: string; value: StatusCautela | "todos" }[] = [
   { label: "Todas", value: "todos" },
@@ -32,8 +33,8 @@ export default function HistoricoScreen() {
   const [filter, setFilter] = useState<StatusCautela | "todos">("todos");
   const [exporting, setExporting] = useState(false);
 
-  const topPad = Platform.OS === "web" ? 0 : insets.top;
-  const botPad = Platform.OS === "web" ? 100 : 0;
+  const topPad = safeTop(insets.top, 20);
+  const botPad = safeBottom(0, Platform.OS === "web" ? 124 : 24);
 
   const filtered = cauteias.filter((c) => {
     const matchStatus = filter === "todos" || c.status === filter;
@@ -61,7 +62,7 @@ export default function HistoricoScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* ── Cabeçalho ── */}
-      <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: topPad + 20 }]}>
+      <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: topPad }]}>
         <View>
           <Text style={styles.headerTitle}>HISTÓRICO</Text>
           <Text style={styles.headerSub}>
@@ -139,7 +140,7 @@ export default function HistoricoScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={[styles.list, { paddingBottom: botPad + 24 }]}
+        contentContainerStyle={[styles.list, { paddingBottom: botPad }]}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!!filtered.length}
         renderItem={({ item }) => <CautelaCard cautela={item} />}

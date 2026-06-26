@@ -17,6 +17,7 @@ import { CautelaCard } from "@/components/CautelaCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCautela } from "@/contexts/CautelaContext";
 import { useColors } from "@/hooks/useColors";
+import { safeBottom, safeTop } from "@/hooks/useSafeAreaWeb";
 
 function MiniStat({ label, value, accent }: { label: string; value: number; accent: string }) {
   return (
@@ -60,7 +61,7 @@ export default function DashboardScreen() {
   const { stats, cauteias } = useCautela();
   const { user, logout } = useAuth();
   const recent = cauteias.slice(0, 5);
-  const topPad = Platform.OS === "web" ? 0 : insets.top;
+  const topPad = safeTop(insets.top, 24);
 
   function handleLogout() {
     const msg = "Deseja sair da conta?";
@@ -73,7 +74,7 @@ export default function DashboardScreen() {
       ]);
     }
   }
-  const botPad = Platform.OS === "web" ? 100 : 0;
+  const botPad = safeBottom(0, Platform.OS === "web" ? 116 : 16);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}> 
@@ -81,7 +82,7 @@ export default function DashboardScreen() {
         colors={["#101f3b", "#1e3a8a", "#4f46e5"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: topPad + 24 }]}
+        style={[styles.header, { paddingTop: topPad }]}
       >
         <View style={styles.topRow}>
           <View style={styles.topLeft}>
@@ -121,7 +122,7 @@ export default function DashboardScreen() {
       </LinearGradient>
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: botPad + 16 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: botPad }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.sectionRow}>

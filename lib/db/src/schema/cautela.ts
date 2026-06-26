@@ -44,6 +44,12 @@ export const cautelasTable = pgTable("cautelas", {
 
   // Observações
   obs: text("obs").notNull().default(""),
+
+  // Finalização (preenchidos na entrega)
+  destinoData: text("destino_data").notNull().default(""),
+  destinoHorario: text("destino_horario").notNull().default(""),
+  recebedor: text("recebedor").notNull().default(""),
+  rg: text("rg").notNull().default(""),
 });
 
 export const insertCautelaSchema = createInsertSchema(cautelasTable).extend({

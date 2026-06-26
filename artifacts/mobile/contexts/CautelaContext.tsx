@@ -2,6 +2,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createApi } from "@/lib/cautelaApi";
 
+// URL do backend compartilhado entre motoristas e administrador.
+// Definida em build/start time via EXPO_PUBLIC_API_URL.
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
+
 export type StatusCautela = "pendente" | "concluida" | "cancelada";
 export type SaidaChegada = "saindo" | "chegando";
 export type TipoVeiculo = "CAVALINHO ATRELADO" | "SÓ O CAVALINHO" | "CAMINHÃO" | "CARRO PEQUENO" | "";
@@ -96,15 +100,90 @@ export function CautelaProvider({ children }: { children: React.ReactNode }) {
     pendentes: 0,
   });
 
+  const apiRef = useRef(createApi(API_URL));
+
+  const persist = useCallback((list: Cautela[]) => {
+    setCauteias(list);
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  }, []);
+
+  const persistRef = useRef(persist);
+  persistRef.current = persist;
+
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
+      let local: Cautela[] = [];
       if (raw) {
         try {
-          setCauteias(JSON.parse(raw));
+          local = JSON.parse(raw);
         } catch {
-          setCauteias([]);
+          local = [];
         }
       }
+      setCauteias(local);
+      syncComServidor(local);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Busca cautelas do servidor (outros dispositivos) e envia as pendentes locais.
+  const syncComServidor = useCallback(async (base: Cautela[]) => {
+    setSyncState((s) => ({ ...s, status: "syncing" }));
+    const api = apiRef.current;
+    let working = base;
+
+    const existeNoServidor = new Set<string>();
+
+    try {
+      const remotas = await api.listar();
+      const remotaMap = new Map(remotas.map((c) => [c.id, c]));
+
+      const merged = working
+        .map((local) => {
+          if (remotaMap.has(local.id)) {
+            existeNoServidor.add(local.id);
+            const r = remotaMap.get(local.id)!;
+            remotaMap.delete(local.id);
+            // Há edição local pendente: mantém o valor local (será reenviado abaixo).
+            if (!local._synced) return local;
+            return { ...r, _synced: true } as Cautela;
+          }
+          // Já estava sincronizado antes e não existe mais no servidor: foi
+          // removido remotamente (ex: em outro dispositivo) — remove localmente.
+          if (local._synced) return null;
+          return local;
+        })
+        .filter((c): c is Cautela => c !== null);
+      for (const remota of remotaMap.values()) {
+        merged.push({ ...remota, _synced: true });
+      }
+      merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      working = merged;
+      persistRef.current(merged);
+    } catch {
+      // Sem conexão com o servidor — segue só com os dados locais.
+    }
+
+    const pendentes = working.filter((c) => !c._synced);
+    for (const cautela of pendentes) {
+      try {
+        if (existeNoServidor.has(cautela.id)) {
+          const { id, createdAt, _synced, ...fields } = cautela;
+          await api.atualizar(id, fields);
+        } else {
+          await api.criar(cautela);
+        }
+        working = working.map((c) => (c.id === cautela.id ? { ...c, _synced: true } : c));
+      } catch {
+        // continua tentando os próximos; este fica pendente
+      }
+    }
+    persistRef.current(working);
+
+    setSyncState({
+      status: "ok",
+      lastSync: new Date().toLocaleString("pt-BR"),
+      pendentes: working.filter((c) => !c._synced).length,
     });
   }, []);
 
@@ -114,9 +193,13 @@ export function CautelaProvider({ children }: { children: React.ReactNode }) {
     setSyncState((s) => ({ ...s, pendentes }));
   }, [cauteias]);
 
-  const persist = useCallback((list: Cautela[]) => {
-    setCauteias(list);
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  // Marca um item como sincronizado após confirmação do servidor.
+  const marcarSincronizado = useCallback((id: string) => {
+    setCauteias((prev) => {
+      const next = prev.map((c) => (c.id === id ? { ...c, _synced: true } : c));
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
   }, []);
 
   const addCautela = useCallback(
@@ -129,8 +212,12 @@ export function CautelaProvider({ children }: { children: React.ReactNode }) {
         _synced: false,
       };
       persist([newItem, ...cauteias]);
+      apiRef.current
+        .criar(newItem)
+        .then(() => marcarSincronizado(newItem.id))
+        .catch(() => {});
     },
-    [cauteias, persist]
+    [cauteias, persist, marcarSincronizado]
   );
 
   const updateStatus = useCallback(
@@ -138,8 +225,12 @@ export function CautelaProvider({ children }: { children: React.ReactNode }) {
       persist(
         cauteias.map((c) => (c.id === id ? { ...c, status, _synced: false } : c))
       );
+      apiRef.current
+        .atualizarStatus(id, status)
+        .then(() => marcarSincronizado(id))
+        .catch(() => {});
     },
-    [cauteias, persist]
+    [cauteias, persist, marcarSincronizado]
   );
 
   const finalizarCautela = useCallback(
@@ -151,8 +242,12 @@ export function CautelaProvider({ children }: { children: React.ReactNode }) {
             : c
         )
       );
+      apiRef.current
+        .atualizar(id, { ...dados, status: "concluida" })
+        .then(() => marcarSincronizado(id))
+        .catch(() => {});
     },
-    [cauteias, persist]
+    [cauteias, persist, marcarSincronizado]
   );
 
   const getCautela = useCallback(

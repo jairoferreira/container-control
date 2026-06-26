@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { StatusCautela } from "@/contexts/CautelaContext";
 import { useCautela } from "@/contexts/CautelaContext";
 import { useColors } from "@/hooks/useColors";
+import { safeBottom, safeTop } from "@/hooks/useSafeAreaWeb";
 import { gerarECompartilharPDF } from "@/lib/generateCautelaPDF";
 
 // Carrega DateTimePicker apenas em native
@@ -290,8 +291,8 @@ export default function CautelaDetailScreen() {
   const { getCautela, updateStatus, finalizarCautela } = useCautela();
   const cautela = getCautela(id);
 
-  const topPad = Platform.OS === "web" ? 0 : insets.top;
-  const botPad = Platform.OS === "web" ? 34 : 0;
+  const topPad = safeTop(insets.top, 16);
+  const botPad = safeBottom(0, Platform.OS === "web" ? 58 : 24);
   const [generatingPDF, setGeneratingPDF] = useState(false);
 
   // ── Finalização ─────────────────────────────────────────────────────────────
@@ -366,8 +367,17 @@ export default function CautelaDetailScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* ── Cabeçalho ─────────────────────────────────────────────────── */}
-      <View style={[styles.header, { backgroundColor: isSaindo ? "#1e3a8a" : "#15803d", paddingTop: topPad + 16 }]}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
+      <View style={[styles.header, { backgroundColor: isSaindo ? "#1e3a8a" : "#15803d", paddingTop: topPad }]}>
+        <Pressable
+          style={styles.backBtn}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/(tabs)");
+            }
+          }}
+        >
           <ArrowLeft size={20} color="#fff" />
         </Pressable>
         <View style={styles.headerCenter}>
@@ -392,7 +402,7 @@ export default function CautelaDetailScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: botPad }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

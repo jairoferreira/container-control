@@ -276,7 +276,23 @@ function buildHtml(c: Cautela): string {
   }
 </style>
 </head>
-<body>
+<body style="padding-bottom:76px;">
+<button
+  onclick="fecharJanela()"
+  class="no-print"
+  style="position:fixed;left:0;right:0;bottom:0;z-index:9999;background:#1e3a8a;color:#fff;border:none;border-top:1px solid rgba(255,255,255,0.15);padding:18px;font-size:17px;font-weight:700;font-family:Arial,sans-serif;cursor:pointer;box-shadow:0 -2px 10px rgba(0,0,0,0.25);"
+>← Voltar para o app</button>
+<style>@media print { .no-print { display: none !important; } }</style>
+<script>
+  function fecharJanela() {
+    window.close();
+    setTimeout(function () {
+      if (!window.closed) window.history.back();
+    }, 300);
+  }
+  // Volta automaticamente assim que o usuário concluir ou cancelar a impressão.
+  window.addEventListener("afterprint", fecharJanela);
+</script>
 <div class="form-wrap">
 
   <!-- ══ CABEÇALHO ══ -->

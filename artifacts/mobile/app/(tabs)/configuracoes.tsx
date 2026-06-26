@@ -33,6 +33,7 @@ import { useCautela } from "@/contexts/CautelaContext";
 import type { Motorista } from "@/contexts/SettingsContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useColors } from "@/hooks/useColors";
+import { safeBottom, safeTop } from "@/hooks/useSafeAreaWeb";
 import { exportarXLSX } from "@/lib/exportCautelasXLSX";
 import { gerarRelatorioTabelaPDF } from "@/lib/generateRelatoriosPDF";
 
@@ -536,8 +537,8 @@ const apm = StyleSheet.create({
 export default function ConfiguracoesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const topPad = Platform.OS === "web" ? 0 : insets.top;
-  const botPad = Platform.OS === "web" ? 100 : 0;
+  const topPad = safeTop(insets.top, 16);
+  const botPad = safeBottom(0, Platform.OS === "web" ? 124 : 24);
 
   const {
     settings,
@@ -632,7 +633,7 @@ export default function ConfiguracoesScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* Cabeçalho */}
-      <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: topPad + 16 }]}>
+      <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: topPad }]}>
         <View>
           <Text style={styles.headerTitle}>CONFIGURAÇÕES</Text>
           <Text style={styles.headerSub}>Cadastros e exportação de dados</Text>
@@ -640,7 +641,7 @@ export default function ConfiguracoesScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: botPad + 24 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: botPad }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

@@ -30,6 +30,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCautela } from "@/contexts/CautelaContext";
 import { motoristaNomes, useSettings } from "@/contexts/SettingsContext";
 import { useColors } from "@/hooks/useColors";
+import { safeBottom, safeTop } from "@/hooks/useSafeAreaWeb";
 
 const OPERACOES = ["MANAUS", "BOA VISTA", "MADEIRA", "ITACOATIARA", "IRANDUBA", "MANACAPURU", "Outro"];
 const TIPOS_VEICULO: TipoVeiculo[] = ["CAVALINHO ATRELADO", "SÓ O CAVALINHO", "CAMINHÃO", "CARRO PEQUENO"];
@@ -203,8 +204,8 @@ export default function NovaCautelaScreen() {
   // Listas dinâmicas: apenas motoristas ativos (objetos → nomes)
   const MOTORISTAS = motoristaNomes(settings.motoristas);
   const PLACAS_CAVALO = settings.placasCavalo;
-  const topPad = Platform.OS === "web" ? 0 : insets.top;
-  const botPad = Platform.OS === "web" ? 100 : 0;
+  const topPad = safeTop(insets.top, 16);
+  const botPad = safeBottom(0, Platform.OS === "web" ? 140 : 40);
 
   // Número de controle automático
   const numeroControle = useMemo(() => {
@@ -316,7 +317,7 @@ export default function NovaCautelaScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* ── Cabeçalho ── */}
-      <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: topPad + 16 }]}>
+      <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: topPad }]}>
         <View>
           <Text style={styles.headerTitle}>NOVA CAUTELA</Text>
           <Text style={styles.headerSub}>Nº {numeroControle} · {dataMov}</Text>
@@ -328,7 +329,7 @@ export default function NovaCautelaScreen() {
       </View>
 
       <KeyboardAwareScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: botPad + 40 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: botPad }]}
         showsVerticalScrollIndicator={false}
         bottomOffset={20}
         keyboardShouldPersistTaps="handled"
