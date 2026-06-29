@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, CheckCircle2, Repeat, Save, X } from "lucide-react-native";
+import { ArrowDown, ArrowUp, CheckCircle2, Save } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useMemo, useRef, useState } from "react";
@@ -266,7 +266,6 @@ export default function NovaCautelaScreen() {
   // ── Estado do formulário ────────────────────────────────────────────────
   const [dataMov, setDataMov] = useState(todayStr);
   const [saidaChegada, setSaidaChegada] = useState<SaidaChegada>("saindo");
-  const [dismissedRepeat, setDismissedRepeat] = useState(false);
 
   // Rota
   const [origem, setOrigem] = useState("");
@@ -305,45 +304,6 @@ export default function NovaCautelaScreen() {
 
   // Esconde Carreta/Bitrem quando o veículo escolhido não tem carreta atrelada.
   const showCarretaSection = !TIPOS_SEM_CARRETA.includes(tipo);
-
-  // ── Repetir última cautela ───────────────────────────────────────────────
-  // Acha a cautela mais recente desse motorista, pra oferecer preencher de
-  // novo com os mesmos dados de rota/veículo (rotas costumam se repetir).
-  const lastCautela = useMemo(() => {
-    if (!motorista.trim()) return null;
-    const minhas = cauteias.filter(
-      (c) => c.motorista.trim().toUpperCase() === motorista.trim().toUpperCase()
-    );
-    if (minhas.length === 0) return null;
-    return minhas.reduce((a, b) =>
-      new Date(a.createdAt) > new Date(b.createdAt) ? a : b
-    );
-  }, [cauteias, motorista]);
-
-  // Só oferece a sugestão enquanto o formulário ainda está "limpo" — some
-  // sozinha assim que o motorista começa a preencher pra não distrair.
-  const showRepeatBanner =
-    !!lastCautela && !dismissedRepeat && !origem && !destino && !tipo;
-
-  function applyLastCautela() {
-    if (!lastCautela) return;
-    setSaidaChegada(lastCautela.saidaChegada);
-    setOrigem(lastCautela.origem);
-    setDestino(lastCautela.destino);
-    setOperacao(lastCautela.operacao);
-    setPlacaCavalo(lastCautela.placaCavalo);
-    handleTipoChange(lastCautela.tipo);
-    setPlacaCarreta(lastCautela.placaCarreta);
-    setSituacao(lastCautela.situacao);
-    setCliente(lastCautela.cliente);
-    setTipoCarreta(lastCautela.tipoCarreta);
-    setTemBitrem(lastCautela.temBitrem);
-    setPlacaCarretaTraseira(lastCautela.placaCarretaTraseira);
-    setSituacaoTraseira(lastCautela.situacaoTraseira);
-    setClienteTraseira(lastCautela.clienteTraseira);
-    setTipoCarretaTraseira(lastCautela.tipoCarretaTraseira);
-    setDismissedRepeat(true);
-  }
 
   function handleTipoChange(novoTipo: TipoVeiculo) {
     setTipo(novoTipo);
@@ -462,29 +422,6 @@ export default function NovaCautelaScreen() {
       >
         {/* ══ SAINDO / CHEGANDO ═══════════════════════════════════════════ */}
         <DirectionToggle value={saidaChegada} onChange={setSaidaChegada} />
-
-        {/* ══ REPETIR ÚLTIMA CAUTELA ═══════════════════════════════════════
-            Sugestão rápida pra rotas que se repetem — some assim que o
-            motorista começa a preencher, ou se ele recusar. */}
-        {showRepeatBanner && lastCautela && (
-          <View style={[styles.repeatBanner, { borderColor: colors.primary, backgroundColor: colors.primary + "0E" }]}>
-            <View style={styles.repeatRow}>
-              <Repeat size={18} color={colors.primary} />
-              <Text style={[styles.repeatText, { color: colors.foreground }]} numberOfLines={2}>
-                Repetir dados da última cautela (#{lastCautela.numeroControle}: {lastCautela.origem} → {lastCautela.destino})?
-              </Text>
-              <Pressable onPress={() => setDismissedRepeat(true)} hitSlop={8}>
-                <X size={16} color={colors.mutedForeground} />
-              </Pressable>
-            </View>
-            <Pressable
-              style={[styles.repeatBtn, { backgroundColor: colors.primary }]}
-              onPress={applyLastCautela}
-            >
-              <Text style={styles.repeatBtnText}>Usar estes dados</Text>
-            </Pressable>
-          </View>
-        )}
 
         {/* ══ VEÍCULO ═════════════════════════════════════════════════════
             Data + Motorista + Placa + Odômetro + Tipo — tudo junto:
@@ -758,17 +695,6 @@ export default function NovaCautelaScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  repeatBanner: {
-    borderWidth: 1.5,
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 14,
-    gap: 10,
-  },
-  repeatRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
-  repeatText: { flex: 1, fontSize: 12.5, fontFamily: "Inter_500Medium", lineHeight: 17 },
-  repeatBtn: { borderRadius: 12, paddingVertical: 10, alignItems: "center" },
-  repeatBtnText: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 13 },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 20,
