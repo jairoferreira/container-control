@@ -31,14 +31,17 @@ npx serve -s dist -l 8081
 
 Para acesso remoto (demo, celular etc.), usar **Cloudflare Tunnel** (`cloudflared tunnel --url http://localhost:5000` e o mesmo para a porta 8081) — gratuito, não precisa de conta.
 
-## O que já funciona (estado em 26/06/2026)
+## O que já funciona (estado em 29/06/2026)
 
-- Login por matrícula+PIN (motorista) e PIN secreto de gestor (3 toques no logo)
-- Cadastro de motoristas e placas
+- Login por **matrícula curta (THB001, THB002...) + PIN**, validado **no servidor** (não mais local)
+- PIN secreto de gestor (3 toques no logo) — também validado no servidor, com hash (bcrypt)
+- Bloqueio por tentativas (5 erros = 15 min) imposto pelo servidor, não contornável limpando dados do navegador
+- Cadastro de motoristas e placas **agora vive no banco de dados** — compartilhado entre todos os dispositivos (antes era só local em cada celular)
 - Fluxo completo de cautela: criar → sincronizar automaticamente → finalizar (recebedor, RG, data/hora)
 - Sincronização em tempo real entre todos os dispositivos, sem botão manual
 - Geração de PDF da cautela (layout oficial) e relatório tabular em Excel
 - Instalável como app no celular (PWA) — ícone da Thiba, tela cheia, sem barra do navegador
+- Tutorial animado interativo (`/tutorial.html`) explicando o preenchimento pro motorista
 - Testado e aprovado pelo usuário em iPhone real
 
 ## Pendente / próximos passos
@@ -46,8 +49,15 @@ Para acesso remoto (demo, celular etc.), usar **Cloudflare Tunnel** (`cloudflare
 - [ ] Escolher hospedagem definitiva do backend (decisão: **custo fixo mensal**, não pay-as-you-go — favorito hoje é **KingHost VPS**)
 - [ ] Apontar subdomínio (ex: `cautelas.thiba.com.br`) via painel atual do domínio (sem tocar nos nameservers, pra não quebrar o e-mail da empresa)
 - [ ] Emitir certificado SSL definitivo
+- [ ] Rodar `pnpm --filter @workspace/api-server run seed` no banco de produção (gera PINs novos — ver aviso de segurança abaixo)
 - [ ] Homologação final com a gestão da Thiba
 - [ ] Publicação em produção
+
+## Segurança — importante
+
+- O PIN do admin inicial (`123456`, gerado pelo seed) **precisa ser trocado** em Configurações antes de divulgar o sistema
+- Os PINs gerados pelo seed ficam só em `PINS_INICIAIS_NAO_COMMITAR.txt` (fora do git) — distribuir aos motoristas e apagar o arquivo depois
+- Toda ação administrativa (criar/editar/remover motorista ou placa) exige o cabeçalho `x-admin-pin`, validado contra o hash salvo — nunca contra texto puro
 
 ## Domínio e hospedagem atual da empresa
 
