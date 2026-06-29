@@ -1,9 +1,10 @@
-import { ArrowDown, ArrowUp, Save } from "lucide-react-native";
+import { ArrowDown, ArrowUp, CheckCircle2, Save } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   Alert,
+  Animated,
   Platform,
   Pressable,
   StyleSheet,
@@ -34,6 +35,9 @@ import { safeBottom, safeTop } from "@/hooks/useSafeAreaWeb";
 
 const OPERACOES = ["MANAUS", "BOA VISTA", "MADEIRA", "ITACOATIARA", "IRANDUBA", "MANACAPURU", "Outro"];
 const TIPOS_VEICULO: TipoVeiculo[] = ["CAVALINHO ATRELADO", "SÓ O CAVALINHO", "CAMINHÃO", "CARRO PEQUENO"];
+// Veículos sem carreta atrelada — esconde as seções de Carreta e Bitrem,
+// que não fazem sentido pra esses tipos (menos rolagem pro motorista).
+const TIPOS_SEM_CARRETA: TipoVeiculo[] = ["SÓ O CAVALINHO", "CARRO PEQUENO"];
 const MODELOS_CONTEINER: ModeloConteiner[] = ["20 DC", "20 TK", "40 FR", "40 HC"];
 const CLIENTES_COMUNS = ["ALIANÇA", "GERDAU", "LEMOS", "MERCOSUL", "ROYAL MAX", "C R LUBRIFICANTES"];
 
@@ -188,6 +192,37 @@ const binStyles = StyleSheet.create({
   },
 });
 
+// ── Banner de sucesso ao salvar (some sozinho) ─────────────────────────────
+function SuccessToast({ opacity, topOffset }: { opacity: Animated.Value; topOffset: number }) {
+  return (
+    <Animated.View style={[toastStyles.wrap, { opacity, top: topOffset }]} pointerEvents="none">
+      <CheckCircle2 size={20} color="#fff" />
+      <Text style={toastStyles.text}>Cautela registrada!</Text>
+    </Animated.View>
+  );
+}
+const toastStyles = StyleSheet.create({
+  wrap: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    zIndex: 50,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#15803d",
+    borderRadius: 16,
+    paddingVertical: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  text: { color: "#fff", fontFamily: "Inter_700Bold", fontSize: 14 },
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // TELA PRINCIPAL
 // ═══════════════════════════════════════════════════════════════════════════
@@ -206,6 +241,7 @@ export default function NovaCautelaScreen() {
   const PLACAS_CAVALO = settings.placasCavalo;
   const topPad = safeTop(insets.top, 16);
   const botPad = safeBottom(0, Platform.OS === "web" ? 140 : 40);
+  const toastTop = Platform.OS === "web" ? 14 : insets.top + 14;
 
   // Número de controle automático
   const numeroControle = useMemo(() => {
@@ -266,6 +302,33 @@ export default function NovaCautelaScreen() {
   // Observações
   const [obs, setObs] = useState("");
 
+  // Esconde Carreta/Bitrem quando o veículo escolhido não tem carreta atrelada.
+  const showCarretaSection = !TIPOS_SEM_CARRETA.includes(tipo);
+
+  function handleTipoChange(novoTipo: TipoVeiculo) {
+    setTipo(novoTipo);
+    if (TIPOS_SEM_CARRETA.includes(novoTipo)) {
+      // Limpa os dados de carreta/bitrem — não fazem sentido pra esse veículo
+      // e não devem ficar salvos "fantasmas" se o motorista trocar o tipo.
+      setPlacaCarreta(""); setSituacao(""); setCliente(""); setTipoCarreta("");
+      setConteiner(""); setModeloConteiner(""); setLacre("");
+      setTemBitrem(false); setPlacaCarretaTraseira(""); setSituacaoTraseira("");
+      setClienteTraseira(""); setTipoCarretaTraseira(""); setConteinerTraseiro("");
+      setModeloConteinerTraseiro(""); setLacreTraseiro("");
+    }
+  }
+
+  // ── Feedback visual de sucesso ──────────────────────────────────────────
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  function showSuccessToast(onDone: () => void) {
+    Animated.sequence([
+      Animated.timing(toastOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.delay(1000),
+      Animated.timing(toastOpacity, { toValue: 0, duration: 250, useNativeDriver: true }),
+    ]).start(onDone);
+  }
+
   function handleSalvar() {
     if (!motorista.trim()) {
       Alert.alert("Atenção", "Selecione o Motorista.");
@@ -309,13 +372,19 @@ export default function NovaCautelaScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
 
-    // navigate() troca de aba corretamente tanto na web quanto no native
-    // (router.replace falha dentro de tab navigators)
-    router.navigate("/(tabs)");
+    // Mostra a confirmação visual antes de sair — sem isso a tela só
+    // "desaparecia" e o motorista não tinha certeza se salvou de verdade.
+    showSuccessToast(() => {
+      // navigate() troca de aba corretamente tanto na web quanto no native
+      // (router.replace falha dentro de tab navigators)
+      router.navigate("/(tabs)");
+    });
   }
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <SuccessToast opacity={toastOpacity} topOffset={toastTop} />
+
       {/* ── Cabeçalho ── */}
       <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: topPad }]}>
         <View>
@@ -374,7 +443,7 @@ export default function NovaCautelaScreen() {
             label="Tipo de Veículo"
             options={TIPOS_VEICULO}
             value={tipo}
-            onChange={(v) => setTipo(v as TipoVeiculo)}
+            onChange={(v) => handleTipoChange(v as TipoVeiculo)}
             columns={2}
           />
         </View>
@@ -406,7 +475,9 @@ export default function NovaCautelaScreen() {
           />
         </View>
 
-        {/* ══ CARRETA DIANTEIRA ════════════════════════════════════════════ */}
+        {/* ══ CARRETA DIANTEIRA ════════════════════════════════════════════
+            Some quando o veículo não tem carreta (Só o Cavalinho / Carro Pequeno) */}
+        {showCarretaSection && (
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <SectionHeader title="Carreta Dianteira" subtitle="Dados da carreta principal" />
           <SuggestField
@@ -466,8 +537,11 @@ export default function NovaCautelaScreen() {
             </View>
           )}
         </View>
+        )}
 
-        {/* ══ BITREM ══════════════════════════════════════════════════════ */}
+        {/* ══ BITREM ══════════════════════════════════════════════════════
+            Some junto com a Carreta Dianteira — sem carreta, não tem bitrem */}
+        {showCarretaSection && (
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <SectionHeader title="Bitrem / Carreta Traseira" />
 
@@ -570,6 +644,7 @@ export default function NovaCautelaScreen() {
             </View>
           )}
         </View>
+        )}
 
         {/* ══ OBSERVAÇÕES ══════════════════════════════════════════════════ */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
