@@ -60,3 +60,9 @@ Container-control-main_RW_Carlos/
 # Logs de processos locais (dev)
 *.log
 run-api.ps1
+
+# PINs gerados pelo seed (sensível)
+PINS_INICIAIS_NAO_COMMITAR.txt
+
+# Ferramenta local de gravação do tutorial (não faz parte do app)
+video-tutorial/

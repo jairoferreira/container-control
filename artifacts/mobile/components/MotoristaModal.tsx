@@ -13,7 +13,6 @@ import {
   View,
 } from "react-native";
 import type { Motorista } from "@/contexts/SettingsContext";
-import { gerarMatricula } from "@/contexts/SettingsContext";
 import { useColors } from "@/hooks/useColors";
 
 // ── Subcomponente: campo de texto ──────────────────────────────────────────
@@ -75,18 +74,28 @@ const f = StyleSheet.create({
 });
 
 // ── Subcomponente: campo de PIN ────────────────────────────────────────────
-function PinField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function PinField({
+  value,
+  onChange,
+  isEdit,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  isEdit: boolean;
+}) {
   const colors = useColors();
   const [show, setShow] = useState(false);
   return (
     <View style={[f.wrap, { marginBottom: 18 }]}>
-      <Text style={[f.label, { color: colors.mutedForeground }]}>PIN DE ACESSO (4 DÍGITOS)</Text>
+      <Text style={[f.label, { color: colors.mutedForeground }]}>
+        PIN DE ACESSO (4 DÍGITOS){!isEdit && <Text style={{ color: "#ef4444" }}> *</Text>}
+      </Text>
       <View style={[pin.row, { borderColor: colors.border, backgroundColor: colors.input }]}>
         <TextInput
           style={[pin.input, { color: colors.foreground }]}
           value={value}
           onChangeText={(t) => onChange(t.replace(/\D/g, "").slice(0, 4))}
-          placeholder="0000"
+          placeholder={isEdit ? "•••• (manter atual)" : "0000"}
           placeholderTextColor={colors.mutedForeground}
           keyboardType="numeric"
           secureTextEntry={!show}
@@ -99,7 +108,9 @@ function PinField({ value, onChange }: { value: string; onChange: (v: string) =>
         </Pressable>
       </View>
       <Text style={[f.hint, { color: colors.mutedForeground }]}>
-        Padrão: 0000 — o motorista usa para entrar no app
+        {isEdit
+          ? "Deixe em branco para manter o PIN atual. O PIN nunca fica salvo no celular do gestor."
+          : "Informe ao motorista — esse PIN fica protegido no servidor, não é salvo em nenhum celular."}
       </Text>
     </View>
   );
@@ -120,22 +131,33 @@ const pin = StyleSheet.create({
 // ═══════════════════════════════════════════════════════════════════════════
 // MODAL PRINCIPAL
 // ═══════════════════════════════════════════════════════════════════════════
+interface MotoristaFormData {
+  matricula: string;
+  nome: string;
+  cnh: string;
+  telefone: string;
+  placa: string;
+  ativo: boolean;
+  pin: string;
+}
+
 interface MotoristaModalProps {
   visible: boolean;
   motorista?: Motorista | null;  // null = criar novo
-  onSave: (data: Omit<Motorista, "id">) => void;
+  onSave: (data: MotoristaFormData) => Promise<void>;
   onClose: () => void;
 }
 
-const EMPTY: Omit<Motorista, "id"> = {
-  matricula: "", nome: "", cnh: "", telefone: "", placa: "", ativo: true, pin: "0000",
+const EMPTY: MotoristaFormData = {
+  matricula: "", nome: "", cnh: "", telefone: "", placa: "", ativo: true, pin: "",
 };
 
 export function MotoristaModal({ visible, motorista, onSave, onClose }: MotoristaModalProps) {
   const colors = useColors();
   const isEdit = !!motorista;
+  const [saving, setSaving] = useState(false);
 
-  const [form, setForm] = useState<Omit<Motorista, "id">>(EMPTY);
+  const [form, setForm] = useState<MotoristaFormData>(EMPTY);
 
   useEffect(() => {
     if (visible) {
@@ -146,27 +168,41 @@ export function MotoristaModal({ visible, motorista, onSave, onClose }: Motorist
         telefone: motorista.telefone,
         placa: motorista.placa,
         ativo: motorista.ativo,
-        pin: motorista.pin,
-      } : { ...EMPTY, matricula: gerarMatricula() });
+        pin: "",
+      } : EMPTY);
     }
   }, [visible, motorista]);
 
-  const set = (key: keyof typeof EMPTY) => (val: string | boolean) =>
+  const set = (key: keyof MotoristaFormData) => (val: string | boolean) =>
     setForm((prev) => ({ ...prev, [key]: val }));
 
-  function handleSave() {
+  function warn(msg: string) {
+    if (Platform.OS === "web") alert(msg);
+    else Alert.alert("Atenção", msg);
+  }
+
+  async function handleSave() {
     if (!form.nome.trim()) {
-      if (Platform.OS === "web") { alert("Nome é obrigatório."); }
-      else { Alert.alert("Atenção", "Nome é obrigatório."); }
+      warn("Nome é obrigatório.");
       return;
     }
-    if (form.pin.length > 0 && form.pin.length < 4) {
-      if (Platform.OS === "web") { alert("PIN deve ter 4 dígitos ou estar em branco."); }
-      else { Alert.alert("Atenção", "PIN deve ter 4 dígitos."); }
+    if (!isEdit && form.pin.length !== 4) {
+      warn("PIN de 4 dígitos é obrigatório para um novo motorista.");
       return;
     }
-    onSave({ ...form, pin: form.pin || "0000" });
-    onClose();
+    if (form.pin && form.pin.length !== 4) {
+      warn("PIN deve ter exatamente 4 dígitos.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(form);
+      onClose();
+    } catch (err: any) {
+      warn(err?.message ?? "Não foi possível salvar. Tente novamente.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -210,21 +246,26 @@ export function MotoristaModal({ visible, motorista, onSave, onClose }: Motorist
                   style={[mat.input, { color: colors.foreground }]}
                   value={form.matricula}
                   onChangeText={(v) => set("matricula")(v.toUpperCase())}
-                  placeholder="THB-00000"
+                  placeholder={isEdit ? "" : "Deixe em branco para gerar (THB001...)"}
                   placeholderTextColor={colors.mutedForeground}
                   autoCapitalize="characters"
                   maxLength={12}
+                  editable={!isEdit}
                 />
-                <Pressable
-                  style={[mat.regenBtn, { backgroundColor: colors.primary + "18" }]}
-                  onPress={() => set("matricula")(gerarMatricula())}
-                  hitSlop={6}
-                >
-                  <RefreshCw size={14} color={colors.primary} />
-                </Pressable>
+                {!isEdit && (
+                  <Pressable
+                    style={[mat.regenBtn, { backgroundColor: colors.primary + "18" }]}
+                    onPress={() => set("matricula")("")}
+                    hitSlop={6}
+                  >
+                    <RefreshCw size={14} color={colors.primary} />
+                  </Pressable>
+                )}
               </View>
               <Text style={[f.hint, { color: colors.mutedForeground }]}>
-                Gerado automaticamente — edite para usar a matrícula real
+                {isEdit
+                  ? "A matrícula não pode ser alterada depois de criada."
+                  : "Em branco, o servidor gera automaticamente (THB001, THB002...)"}
               </Text>
             </View>
 
@@ -267,7 +308,7 @@ export function MotoristaModal({ visible, motorista, onSave, onClose }: Motorist
               hint="Placa que esse motorista usa com mais frequência"
             />
 
-            <PinField value={form.pin} onChange={set("pin")} />
+            <PinField value={form.pin} onChange={set("pin")} isEdit={isEdit} />
 
             {/* Status ativo/inativo */}
             <View style={[styles.statusRow, { borderColor: colors.border }]}>
@@ -294,11 +335,12 @@ export function MotoristaModal({ visible, motorista, onSave, onClose }: Motorist
                 <Text style={[styles.btnText, { color: colors.mutedForeground }]}>Cancelar</Text>
               </Pressable>
               <Pressable
-                style={[styles.btn, styles.btnPrimary, { backgroundColor: colors.primary }]}
+                style={[styles.btn, styles.btnPrimary, { backgroundColor: colors.primary, opacity: saving ? 0.6 : 1 }]}
                 onPress={handleSave}
+                disabled={saving}
               >
                 <Text style={[styles.btnText, { color: "#fff" }]}>
-                  {isEdit ? "Salvar alterações" : "Cadastrar"}
+                  {saving ? "Salvando..." : isEdit ? "Salvar alterações" : "Cadastrar"}
                 </Text>
               </Pressable>
             </View>

@@ -1,10 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createApi } from "@/lib/cautelaApi";
-
-// URL do backend compartilhado entre motoristas e administrador.
-// Definida em build/start time via EXPO_PUBLIC_API_URL.
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
+import { API_URL } from "@/lib/apiConfig";
 
 export type StatusCautela = "pendente" | "concluida" | "cancelada";
 export type SaidaChegada = "saindo" | "chegando";

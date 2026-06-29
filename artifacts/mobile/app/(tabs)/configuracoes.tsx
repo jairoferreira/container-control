@@ -29,11 +29,13 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MotoristaModal } from "@/components/MotoristaModal";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCautela } from "@/contexts/CautelaContext";
 import type { Motorista } from "@/contexts/SettingsContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useColors } from "@/hooks/useColors";
 import { safeBottom, safeTop } from "@/hooks/useSafeAreaWeb";
+import { authApi } from "@/lib/authApi";
 import { exportarXLSX } from "@/lib/exportCautelasXLSX";
 import { gerarRelatorioTabelaPDF } from "@/lib/generateRelatoriosPDF";
 
@@ -455,7 +457,7 @@ function MotoristaCadastroItem({
           </View>
         </View>
         <Text style={[mitem.pinHint, { color: colors.mutedForeground }]}>
-          PIN: {motorista.pin === "0000" ? "padrão (0000)" : "personalizado"}
+          {motorista.matricula}
         </Text>
       </View>
       <View style={mitem.actions}>
@@ -544,10 +546,22 @@ export default function ConfiguracoesScreen() {
     settings,
     addMotorista, updateMotorista, removeMotorista,
     addPlaca, removePlaca,
-    setAdminPin, resetToDefaults,
   } = useSettings();
+  const { adminPin, loginAdmin } = useAuth();
 
   const { cauteias } = useCautela();
+
+  function avisoSemPin() {
+    const msg = "Sessão de administrador expirou. Saia e entre novamente como gestor para fazer alterações.";
+    if (Platform.OS === "web") alert(msg);
+    else Alert.alert("Atenção", msg);
+  }
+
+  function avisoErro(err: unknown) {
+    const msg = err instanceof Error ? err.message : "Não foi possível completar a ação.";
+    if (Platform.OS === "web") alert(msg);
+    else Alert.alert("Erro", msg);
+  }
 
   // ── Motorista modal ──────────────────────────────────────────────────────
   const [motoModal, setMotoModal] = useState<{ open: boolean; motorista: Motorista | null }>({ open: false, motorista: null });
@@ -620,12 +634,14 @@ export default function ConfiguracoesScreen() {
   }
 
   function confirmRemoveMotorista(m: Motorista) {
+    if (!adminPin) { avisoSemPin(); return; }
+    const doRemove = () => removeMotorista(adminPin, m.id).catch(avisoErro);
     const msg = `Remover "${m.nome}" do cadastro?`;
-    if (Platform.OS === "web") { if (window.confirm(msg)) removeMotorista(m.id); }
+    if (Platform.OS === "web") { if (window.confirm(msg)) doRemove(); }
     else {
       Alert.alert("Remover motorista", msg, [
         { text: "Cancelar", style: "cancel" },
-        { text: "Remover", style: "destructive", onPress: () => removeMotorista(m.id) },
+        { text: "Remover", style: "destructive", onPress: doRemove },
       ]);
     }
   }
@@ -759,7 +775,8 @@ export default function ConfiguracoesScreen() {
           <EditableList
             items={settings.placasCavalo}
             placeholder="Ex: NOJ2358 ou NOW3D40"
-            onAdd={addPlaca} onRemove={removePlaca}
+            onAdd={(p) => { if (!adminPin) { avisoSemPin(); return; } addPlaca(adminPin, p).catch(avisoErro); }}
+            onRemove={(p) => { if (!adminPin) { avisoSemPin(); return; } removePlaca(adminPin, p).catch(avisoErro); }}
             autoCapitalize="characters"
           />
         </SectionCard>
@@ -781,29 +798,20 @@ export default function ConfiguracoesScreen() {
           </Pressable>
         </SectionCard>
 
-        {/* ══ RESETAR ═════════════════════════════════════════════════════ */}
-        <Pressable
-          style={[styles.resetBtn, { borderColor: "#ef4444" }]}
-          onPress={() => {
-            const msg = "Restaurar todas as listas para os valores padrão?";
-            if (Platform.OS === "web") { if (window.confirm(msg)) resetToDefaults(); }
-            else { Alert.alert("Restaurar padrões", msg, [{ text: "Cancelar", style: "cancel" }, { text: "Restaurar", style: "destructive", onPress: resetToDefaults }]); }
-          }}
-        >
-          <Text style={styles.resetText}>Restaurar Listas para o Padrão</Text>
-        </Pressable>
       </ScrollView>
 
       {/* ── Modais ──────────────────────────────────────────────────────── */}
       <MotoristaModal
         visible={motoModal.open}
         motorista={motoModal.motorista}
-        onSave={(data) => {
+        onSave={async (data) => {
+          if (!adminPin) { avisoSemPin(); throw new Error("Sessão de administrador expirou."); }
           if (motoModal.motorista) {
-            updateMotorista(motoModal.motorista.id, data);
+            const { pin, ...fields } = data;
+            await updateMotorista(adminPin, motoModal.motorista.id, pin ? data : fields);
             Alert.alert("✅ Salvo", "Cadastro atualizado.");
           } else {
-            addMotorista(data);
+            await addMotorista(adminPin, data);
             Alert.alert("✅ Cadastrado", `${data.nome} adicionado.`);
           }
         }}
@@ -812,7 +820,17 @@ export default function ConfiguracoesScreen() {
 
       <AdminPinModal
         visible={adminPinModal}
-        onConfirm={(pin) => { setAdminPin(pin); setAdminPinModal(false); Alert.alert("✅ Salvo", "PIN do administrador atualizado."); }}
+        onConfirm={async (newPin) => {
+          if (!adminPin) { avisoSemPin(); return; }
+          try {
+            await authApi.trocarPinAdmin(adminPin, newPin);
+            loginAdmin(newPin);
+            setAdminPinModal(false);
+            Alert.alert("✅ Salvo", "PIN do administrador atualizado.");
+          } catch (err) {
+            avisoErro(err);
+          }
+        }}
         onClose={() => setAdminPinModal(false)}
       />
     </View>

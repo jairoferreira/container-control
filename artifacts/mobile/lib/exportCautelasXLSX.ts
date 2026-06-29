@@ -4,7 +4,7 @@
  * e aciona o download no browser (web) ou o compartilhamento nativo (mobile).
  */
 
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { Alert, Platform } from "react-native";
 import * as XLSX from "xlsx";

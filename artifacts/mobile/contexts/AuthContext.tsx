@@ -16,10 +16,15 @@ export interface AuthUser {
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
+  /** PIN do admin guardado só em memória (nunca persistido) — usado para
+   *  autorizar ações administrativas no servidor (cabeçalho x-admin-pin).
+   *  Fica null após reabrir o app — nesse caso, ações administrativas
+   *  exigem confirmar o PIN novamente. */
+  adminPin: string | null;
   /** Chama após validação bem-sucedida na LoginScreen */
   loginMotorista: (nome: string) => void;
-  /** Chama após validação bem-sucedida na LoginScreen */
-  loginAdmin: () => void;
+  /** Chama após o servidor confirmar o PIN do admin */
+  loginAdmin: (pin: string) => void;
   logout: () => void;
 }
 
@@ -30,6 +35,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [adminPin, setAdminPin] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // ── Restaurar sessão ao iniciar / F5 ────────────────────────────────────
@@ -61,11 +67,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const clearSession = useCallback(() => {
     setUser(null);
+    setAdminPin(null);
     AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
   }, []);
 
   // ── Login motorista ───────────────────────────────────────────────────────
-  // A validação (matrícula + PIN) ocorre na LoginScreen antes de chamar isto.
+  // A validação (matrícula + PIN) ocorre no servidor antes de chamar isto.
   const loginMotorista = useCallback(
     (nome: string) => {
       saveSession({ nome, isAdmin: false, loginAt: Date.now() });
@@ -74,16 +81,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   // ── Login admin ───────────────────────────────────────────────────────────
-  const loginAdmin = useCallback(() => {
-    saveSession({ nome: "Administrador", isAdmin: true, loginAt: Date.now() });
-  }, [saveSession]);
+  // O PIN já foi validado pelo servidor; guardamos em memória para
+  // autorizar próximas chamadas administrativas (nunca persistido em disco).
+  const loginAdmin = useCallback(
+    (pin: string) => {
+      setAdminPin(pin);
+      saveSession({ nome: "Administrador", isAdmin: true, loginAt: Date.now() });
+    },
+    [saveSession]
+  );
 
   // ── Logout ────────────────────────────────────────────────────────────────
   const logout = useCallback(() => clearSession(), [clearSession]);
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, loginMotorista, loginAdmin, logout }}
+      value={{ user, loading, adminPin, loginMotorista, loginAdmin, logout }}
     >
       {children}
     </AuthContext.Provider>

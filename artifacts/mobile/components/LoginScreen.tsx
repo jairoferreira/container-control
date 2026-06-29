@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { Lock } from "lucide-react-native";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   Keyboard,
   Modal,
@@ -13,16 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
-import { useSettings } from "@/contexts/SettingsContext";
-import {
-  ADMIN_LOCKOUT_MS,
-  ADMIN_LOGIN_KEY,
-  MOTORISTA_LOCKOUT_MS,
-  MOTORISTA_LOGIN_KEY,
-  checkLockout,
-  clearAttempts,
-  recordFailure,
-} from "@/lib/loginSecurity";
+import { authApi, AuthApiError } from "@/lib/authApi";
 
 // ── PIN Dots ──────────────────────────────────────────────────────────────────
 function PinDots({
@@ -131,20 +122,14 @@ const pad = StyleSheet.create({
   },
 });
 
-// ── Lockout Banner ────────────────────────────────────────────────────────────
-function LockoutBanner({ secs }: { secs: number }) {
-  const mins = Math.floor(secs / 60);
-  const s = secs % 60;
-  const timeStr = `${mins}:${String(s).padStart(2, "0")}`;
+// ── Lockout Banner (texto vindo do servidor) ──────────────────────────────────
+function LockoutBanner({ message }: { message: string }) {
   return (
     <View style={lb.wrap}>
       <Lock size={20} color="#f87171" />
-      <View>
+      <View style={{ flex: 1 }}>
         <Text style={lb.title}>Acesso bloqueado</Text>
-        <Text style={lb.sub}>
-          Tente novamente em{" "}
-          <Text style={lb.timer}>{timeStr}</Text>
-        </Text>
+        <Text style={lb.sub}>{message}</Text>
       </View>
     </View>
   );
@@ -172,10 +157,6 @@ const lb = StyleSheet.create({
     color: "rgba(248,113,113,0.8)",
     marginTop: 1,
   },
-  timer: {
-    fontFamily: "Inter_700Bold",
-    color: "#f87171",
-  },
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -186,7 +167,6 @@ type Step = "matricula" | "pin";
 export function LoginScreen() {
   const insets = useSafeAreaInsets();
   const { loginMotorista, loginAdmin } = useAuth();
-  const { settings } = useSettings();
 
   // ── Etapa de login ──────────────────────────────────────────────────────
   const [step, setStep] = useState<Step>("matricula");
@@ -194,10 +174,8 @@ export function LoginScreen() {
   const [pinDigits, setPinDigits] = useState("");
   const [pinError, setPinError] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  // ── Bloqueio motorista ──────────────────────────────────────────────────
-  const [lockoutSecs, setLockoutSecs] = useState(0);
-  const lockoutTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [lockMsg, setLockMsg] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   // ── Admin easter egg ────────────────────────────────────────────────────
   const logoTapCount = useRef(0);
@@ -206,54 +184,8 @@ export function LoginScreen() {
   const [adminDigits, setAdminDigits] = useState("");
   const [adminError, setAdminError] = useState(false);
   const [adminErrorMsg, setAdminErrorMsg] = useState<string | null>(null);
-  const [adminLockoutSecs, setAdminLockoutSecs] = useState(0);
-  const adminTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // ── Verificar bloqueio ao montar ────────────────────────────────────────
-  useEffect(() => {
-    checkLockout(MOTORISTA_LOGIN_KEY).then(({ locked, remainingMs }) => {
-      if (locked) startCountdown(remainingMs, "motorista");
-    });
-  }, []);
-
-  // ── Helpers de countdown ────────────────────────────────────────────────
-  function startCountdown(ms: number, who: "motorista" | "admin") {
-    const secs = Math.ceil(ms / 1000);
-    if (who === "motorista") {
-      setLockoutSecs(secs);
-      if (lockoutTimerRef.current) clearInterval(lockoutTimerRef.current);
-      lockoutTimerRef.current = setInterval(() => {
-        setLockoutSecs((prev) => {
-          if (prev <= 1) {
-            clearInterval(lockoutTimerRef.current!);
-            lockoutTimerRef.current = null;
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
-      setAdminLockoutSecs(secs);
-      if (adminTimerRef.current) clearInterval(adminTimerRef.current);
-      adminTimerRef.current = setInterval(() => {
-        setAdminLockoutSecs((prev) => {
-          if (prev <= 1) {
-            clearInterval(adminTimerRef.current!);
-            adminTimerRef.current = null;
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-  }
-
-  useEffect(() => {
-    return () => {
-      if (lockoutTimerRef.current) clearInterval(lockoutTimerRef.current);
-      if (adminTimerRef.current) clearInterval(adminTimerRef.current);
-    };
-  }, []);
+  const [adminLockMsg, setAdminLockMsg] = useState<string | null>(null);
+  const [adminSubmitting, setAdminSubmitting] = useState(false);
 
   // ── Logo — 3 toques abrem o admin ───────────────────────────────────────
   const handleLogoTap = useCallback(() => {
@@ -261,16 +193,11 @@ export function LoginScreen() {
     if (logoTapTimer.current) clearTimeout(logoTapTimer.current);
     if (logoTapCount.current >= 3) {
       logoTapCount.current = 0;
-      // Verifica bloqueio do admin antes de abrir
-      checkLockout(ADMIN_LOGIN_KEY).then(({ locked, remainingMs }) => {
-        if (locked) {
-          startCountdown(remainingMs, "admin");
-        }
-        setAdminDigits("");
-        setAdminError(false);
-        setAdminErrorMsg(null);
-        setAdminModalOpen(true);
-      });
+      setAdminDigits("");
+      setAdminError(false);
+      setAdminErrorMsg(null);
+      setAdminLockMsg(null);
+      setAdminModalOpen(true);
     } else {
       logoTapTimer.current = setTimeout(() => {
         logoTapCount.current = 0;
@@ -287,59 +214,48 @@ export function LoginScreen() {
       return;
     }
     setErrorMsg(null);
+    setLockMsg(null);
     setPinDigits("");
     setPinError(false);
     setStep("pin");
   }
 
-  // ── Etapa 2: PIN ────────────────────────────────────────────────────────
+  // ── Etapa 2: PIN — validado no servidor ──────────────────────────────────
   const handleDigit = useCallback(
     async (d: string) => {
-      if (lockoutSecs > 0) return;
+      if (submitting) return;
       setPinError(false);
       setErrorMsg(null);
       const next = pinDigits + d;
       setPinDigits(next);
 
       if (next.length === 4) {
+        setSubmitting(true);
         const mat = matriculaInput.trim().toUpperCase();
-        const motorista = settings.motoristas.find(
-          (m) => m.matricula.toUpperCase() === mat && m.ativo
-        );
-        const pinCorreta = motorista?.pin ?? null;
-        const ok = pinCorreta !== null && next === pinCorreta;
-
-        if (ok) {
-          await clearAttempts(MOTORISTA_LOGIN_KEY);
-          loginMotorista(motorista!.nome);
-        } else {
+        try {
+          const motorista = await authApi.loginMotorista(mat, next);
+          loginMotorista(motorista.nome);
+        } catch (err) {
           setPinError(true);
-          const { locked, remainingMs, attemptsLeft } = await recordFailure(
-            MOTORISTA_LOGIN_KEY,
-            MOTORISTA_LOCKOUT_MS
-          );
-
           setTimeout(() => {
             setPinDigits("");
             setPinError(false);
-            if (locked) {
-              startCountdown(remainingMs, "motorista");
-              setErrorMsg(null);
+            if (err instanceof AuthApiError && err.status === 423) {
+              setLockMsg(err.message);
               setStep("matricula");
               setMatriculaInput("");
+            } else if (err instanceof AuthApiError) {
+              setErrorMsg(err.message);
             } else {
-              // Mensagem genérica — não revela se matrícula existe ou PIN está errado
-              setErrorMsg(
-                attemptsLeft === 1
-                  ? "Matrícula ou PIN incorretos. Mais 1 tentativa antes do bloqueio."
-                  : `Matrícula ou PIN incorretos. Tentativas restantes: ${attemptsLeft}.`
-              );
+              setErrorMsg("Não foi possível conectar. Verifique sua internet.");
             }
           }, 800);
+        } finally {
+          setSubmitting(false);
         }
       }
     },
-    [pinDigits, matriculaInput, settings.motoristas, loginMotorista, lockoutSecs]
+    [pinDigits, matriculaInput, loginMotorista, submitting]
   );
 
   const handleDelete = useCallback(() => {
@@ -347,46 +263,40 @@ export function LoginScreen() {
     setPinDigits((p) => p.slice(0, -1));
   }, []);
 
-  // ── Admin PIN ───────────────────────────────────────────────────────────
+  // ── Admin PIN — validado no servidor ─────────────────────────────────────
   const handleAdminDigit = useCallback(
     async (d: string) => {
-      if (adminLockoutSecs > 0) return;
+      if (adminSubmitting) return;
       setAdminError(false);
       setAdminErrorMsg(null);
       const next = adminDigits + d;
       setAdminDigits(next);
 
       if (next.length === 6) {
-        const ok = next === settings.adminPin;
-        if (ok) {
-          await clearAttempts(ADMIN_LOGIN_KEY);
+        setAdminSubmitting(true);
+        try {
+          await authApi.loginAdmin(next);
           setAdminModalOpen(false);
-          loginAdmin();
-        } else {
+          loginAdmin(next);
+        } catch (err) {
           setAdminError(true);
-          const { locked, remainingMs, attemptsLeft } = await recordFailure(
-            ADMIN_LOGIN_KEY,
-            ADMIN_LOCKOUT_MS
-          );
-
           setTimeout(() => {
             setAdminDigits("");
             setAdminError(false);
-            if (locked) {
-              startCountdown(remainingMs, "admin");
-              setAdminErrorMsg(null);
+            if (err instanceof AuthApiError && err.status === 423) {
+              setAdminLockMsg(err.message);
+            } else if (err instanceof AuthApiError) {
+              setAdminErrorMsg(err.message);
             } else {
-              setAdminErrorMsg(
-                attemptsLeft === 1
-                  ? "PIN incorreto. Última tentativa."
-                  : `PIN incorreto. Tentativas restantes: ${attemptsLeft}.`
-              );
+              setAdminErrorMsg("Não foi possível conectar. Verifique sua internet.");
             }
           }, 800);
+        } finally {
+          setAdminSubmitting(false);
         }
       }
     },
-    [adminDigits, settings.adminPin, loginAdmin, adminLockoutSecs]
+    [adminDigits, loginAdmin, adminSubmitting]
   );
 
   const handleAdminDelete = useCallback(() => {
@@ -418,10 +328,10 @@ export function LoginScreen() {
       <View style={styles.card}>
 
         {/* Banner de bloqueio */}
-        {lockoutSecs > 0 && <LockoutBanner secs={lockoutSecs} />}
+        {lockMsg && <LockoutBanner message={lockMsg} />}
 
         {/* ETAPA 1 — Matrícula */}
-        {step === "matricula" && lockoutSecs === 0 && (
+        {step === "matricula" && (
           <>
             <Text style={styles.fieldLabel}>Matrícula</Text>
             <TextInput
@@ -431,7 +341,7 @@ export function LoginScreen() {
                 setMatriculaInput(v.toUpperCase());
                 setErrorMsg(null);
               }}
-              placeholder="Ex: THB-00001"
+              placeholder="Ex: THB001"
               placeholderTextColor="rgba(255,255,255,0.25)"
               autoCapitalize="characters"
               autoCorrect={false}
@@ -463,7 +373,7 @@ export function LoginScreen() {
         )}
 
         {/* ETAPA 2 — PIN */}
-        {step === "pin" && lockoutSecs === 0 && (
+        {step === "pin" && (
           <>
             <View style={styles.pinHeader}>
               <Text style={styles.fieldLabel}>PIN de acesso</Text>
@@ -490,7 +400,7 @@ export function LoginScreen() {
             <NumPad
               onDigit={handleDigit}
               onDelete={handleDelete}
-              disabled={lockoutSecs > 0}
+              disabled={submitting}
             />
           </>
         )}
@@ -508,9 +418,8 @@ export function LoginScreen() {
             <Text style={adm.title}>Acesso Gestor</Text>
             <Text style={adm.sub}>PIN de administrador (6 dígitos)</Text>
 
-            {/* Bloqueio admin */}
-            {adminLockoutSecs > 0 ? (
-              <LockoutBanner secs={adminLockoutSecs} />
+            {adminLockMsg ? (
+              <LockoutBanner message={adminLockMsg} />
             ) : (
               <>
                 <PinDots
@@ -524,7 +433,7 @@ export function LoginScreen() {
                 <NumPad
                   onDigit={handleAdminDigit}
                   onDelete={handleAdminDelete}
-                  disabled={adminLockoutSecs > 0}
+                  disabled={adminSubmitting}
                 />
               </>
             )}
