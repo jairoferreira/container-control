@@ -14,6 +14,7 @@ interface SuggestFieldProps extends Omit<TextInputProps, "value" | "onChangeText
   value: string;
   onChangeText: (text: string) => void;
   suggestions: string[];
+  required?: boolean;
 }
 
 export function SuggestField({
@@ -21,6 +22,7 @@ export function SuggestField({
   value,
   onChangeText,
   suggestions,
+  required,
   style,
   ...props
 }: SuggestFieldProps) {
@@ -42,6 +44,7 @@ export function SuggestField({
     <View style={styles.wrap}>
       <Text style={[styles.label, { color: colors.mutedForeground }]}>
         {label.toUpperCase()}
+        {required && <Text style={{ color: "#ef4444" }}> *</Text>}
       </Text>
       <TextInput
         style={[
