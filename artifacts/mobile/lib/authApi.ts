@@ -42,8 +42,9 @@ export const authApi = {
     );
   },
 
-  loginAdmin(pin: string) {
-    return request<{ ok: true }>("/auth/admin", {
+  // Aceita PIN de admin OU de consulta — o servidor devolve qual papel bateu.
+  loginRestrito(pin: string) {
+    return request<{ ok: true; role: "admin" | "consulta" }>("/auth/admin", {
       method: "POST",
       body: JSON.stringify({ pin }),
     });
@@ -53,6 +54,13 @@ export const authApi = {
     return request<{ ok: true }>("/auth/admin/pin", {
       method: "POST",
       body: JSON.stringify({ currentPin, newPin }),
+    });
+  },
+
+  definirPinConsulta(adminPin: string, newPin: string) {
+    return request<{ ok: true }>("/auth/consulta/pin", {
+      method: "POST",
+      body: JSON.stringify({ adminPin, newPin }),
     });
   },
 };

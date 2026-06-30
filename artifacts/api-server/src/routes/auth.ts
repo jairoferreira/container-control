@@ -88,11 +88,15 @@ router.post("/auth/motorista", loginLimiter, async (req, res, next) => {
   }
 });
 
+// Acesso restrito (gesto secreto no app): aceita o PIN do admin OU o PIN de
+// consulta (perfil só-leitura, ex: secretária) — o servidor identifica qual
+// é qual e devolve o papel correspondente. Tentativas erradas de ambos
+// compartilham o mesmo bloqueio (não dá pra distinguir intenção do atacante).
 router.post("/auth/admin", loginLimiter, async (req, res, next) => {
   try {
     const pin = typeof req.body?.pin === "string" ? req.body.pin : "";
-    if (!/^\d{6}$/.test(pin)) {
-      res.status(400).json({ error: "PIN deve ter 6 dígitos." });
+    if (!/^\d{4,6}$/.test(pin)) {
+      res.status(400).json({ error: "PIN inválido." });
       return;
     }
 
@@ -110,9 +114,11 @@ router.post("/auth/admin", loginLimiter, async (req, res, next) => {
       return;
     }
 
-    const ok = await bcrypt.compare(pin, settings.adminPinHash);
+    const okAdmin = await bcrypt.compare(pin, settings.adminPinHash);
+    const okConsulta =
+      !okAdmin && settings.consultaPinHash ? await bcrypt.compare(pin, settings.consultaPinHash) : false;
 
-    if (!ok) {
+    if (!okAdmin && !okConsulta) {
       const attempts = settings.adminFailedAttempts + 1;
       const lockedUntil =
         attempts >= LOCK_AFTER_ATTEMPTS ? new Date(Date.now() + LOCK_MINUTES * 60 * 1000) : null;
@@ -129,7 +135,7 @@ router.post("/auth/admin", loginLimiter, async (req, res, next) => {
       .set({ adminFailedAttempts: 0, adminLockedUntil: null })
       .where(eq(appSettingsTable.id, "main"));
 
-    res.json({ ok: true });
+    res.json({ ok: true, role: okAdmin ? "admin" : "consulta" });
   } catch (err) {
     next(err);
   }
@@ -155,6 +161,35 @@ router.post("/auth/admin/pin", async (req, res, next) => {
     await db
       .update(appSettingsTable)
       .set({ adminPinHash: newHash })
+      .where(eq(appSettingsTable.id, "main"));
+
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Admin define/troca o PIN de consulta (perfil só-leitura). Não exige o PIN
+// de consulta atual — o admin tem autoridade pra redefini-lo livremente.
+router.post("/auth/consulta/pin", async (req, res, next) => {
+  try {
+    const adminPin = typeof req.body?.adminPin === "string" ? req.body.adminPin : "";
+    const newPin = typeof req.body?.newPin === "string" ? req.body.newPin : "";
+    if (!/^\d{6}$/.test(adminPin) || !/^\d{4,6}$/.test(newPin)) {
+      res.status(400).json({ error: "PIN inválido." });
+      return;
+    }
+
+    const [settings] = await db.select().from(appSettingsTable).where(eq(appSettingsTable.id, "main"));
+    if (!settings || !(await bcrypt.compare(adminPin, settings.adminPinHash))) {
+      res.status(401).json({ error: "PIN do administrador incorreto." });
+      return;
+    }
+
+    const newHash = await bcrypt.hash(newPin, 10);
+    await db
+      .update(appSettingsTable)
+      .set({ consultaPinHash: newHash, consultaFailedAttempts: 0, consultaLockedUntil: null })
       .where(eq(appSettingsTable.id, "main"));
 
     res.json({ ok: true });

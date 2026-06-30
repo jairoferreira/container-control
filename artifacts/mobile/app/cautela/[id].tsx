@@ -18,6 +18,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "@/contexts/AuthContext";
 import type { StatusCautela } from "@/contexts/CautelaContext";
 import { useCautela } from "@/contexts/CautelaContext";
 import { useColors } from "@/hooks/useColors";
@@ -289,6 +290,7 @@ export default function CautelaDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getCautela, updateStatus, finalizarCautela } = useCautela();
+  const { user } = useAuth();
   const cautela = getCautela(id);
 
   const topPad = safeTop(insets.top, 16);
@@ -478,7 +480,8 @@ export default function CautelaDetailScreen() {
         ) : null}
 
         {/* ── AÇÕES ──────────────────────────────────────────────────────── */}
-        {cautela.status === "pendente" && (
+        {/* Consulta é só-leitura: nunca finaliza nem cancela cautelas */}
+        {cautela.status === "pendente" && user?.role !== "consulta" && (
           <View style={styles.actionsWrap}>
 
             {/* ── Formulário de finalização ─────────────────────────────── */}

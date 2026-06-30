@@ -12,16 +12,20 @@ import { useColors } from "@/hooks/useColors";
 
 function NativeTabLayout() {
   const { user } = useAuth();
+  // Consulta é só-leitura: sem "Nova Cautela" nem "Config."
+  const isConsulta = user?.role === "consulta";
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
         <Icon sf={{ default: "house", selected: "house.fill" }} />
         <Label>Dashboard</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="nova-cautela">
-        <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
-        <Label>Nova Cautela</Label>
-      </NativeTabs.Trigger>
+      {!isConsulta && (
+        <NativeTabs.Trigger name="nova-cautela">
+          <Icon sf={{ default: "plus.circle", selected: "plus.circle.fill" }} />
+          <Label>Nova Cautela</Label>
+        </NativeTabs.Trigger>
+      )}
       <NativeTabs.Trigger name="historico">
         <Icon sf={{ default: "list.bullet", selected: "list.bullet.circle.fill" }} />
         <Label>Histórico</Label>
@@ -40,6 +44,7 @@ function ClassicTabLayout() {
   const colors = useColors();
   const colorScheme = useColorScheme();
   const { user } = useAuth();
+  const isConsulta = user?.role === "consulta";
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
@@ -92,6 +97,8 @@ function ClassicTabLayout() {
         name="nova-cautela"
         options={{
           title: "Nova Cautela",
+          // Consulta não cria cautela — aba só-leitura
+          tabBarButton: isConsulta ? () => null : undefined,
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="plus.circle" tintColor={color} size={22} />

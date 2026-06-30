@@ -7,8 +7,12 @@ import React, {
   useState,
 } from "react";
 
+export type AuthRole = "motorista" | "admin" | "consulta";
+
 export interface AuthUser {
   nome: string;
+  role: AuthRole;
+  /** @deprecated use `role === "admin"` — mantido pra não quebrar telas existentes */
   isAdmin: boolean;
   loginAt: number; // timestamp ms — usado para expirar sessão em 12 h
 }
@@ -23,8 +27,8 @@ interface AuthContextType {
   adminPin: string | null;
   /** Chama após validação bem-sucedida na LoginScreen */
   loginMotorista: (nome: string) => void;
-  /** Chama após o servidor confirmar o PIN do admin */
-  loginAdmin: (pin: string) => void;
+  /** Chama após o servidor confirmar o PIN restrito (admin ou consulta) */
+  loginRestrito: (role: "admin" | "consulta", pin: string) => void;
   logout: () => void;
 }
 
@@ -75,18 +79,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // A validação (matrícula + PIN) ocorre no servidor antes de chamar isto.
   const loginMotorista = useCallback(
     (nome: string) => {
-      saveSession({ nome, isAdmin: false, loginAt: Date.now() });
+      saveSession({ nome, role: "motorista", isAdmin: false, loginAt: Date.now() });
     },
     [saveSession]
   );
 
-  // ── Login admin ───────────────────────────────────────────────────────────
-  // O PIN já foi validado pelo servidor; guardamos em memória para
-  // autorizar próximas chamadas administrativas (nunca persistido em disco).
-  const loginAdmin = useCallback(
-    (pin: string) => {
-      setAdminPin(pin);
-      saveSession({ nome: "Administrador", isAdmin: true, loginAt: Date.now() });
+  // ── Login admin / consulta ──────────────────────────────────────────────
+  // O PIN já foi validado pelo servidor; só guardamos em memória (nunca em
+  // disco) quando é admin, pra autorizar próximas chamadas administrativas —
+  // consulta não tem nenhuma ação que precise do PIN depois do login.
+  const loginRestrito = useCallback(
+    (role: "admin" | "consulta", pin: string) => {
+      setAdminPin(role === "admin" ? pin : null);
+      saveSession({
+        nome: role === "admin" ? "Administrador" : "Consulta",
+        role,
+        isAdmin: role === "admin",
+        loginAt: Date.now(),
+      });
     },
     [saveSession]
   );
@@ -96,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, adminPin, loginMotorista, loginAdmin, logout }}
+      value={{ user, loading, adminPin, loginMotorista, loginRestrito, logout }}
     >
       {children}
     </AuthContext.Provider>

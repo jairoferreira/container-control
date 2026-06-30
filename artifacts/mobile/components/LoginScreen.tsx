@@ -166,7 +166,7 @@ type Step = "matricula" | "pin";
 
 export function LoginScreen() {
   const insets = useSafeAreaInsets();
-  const { loginMotorista, loginAdmin } = useAuth();
+  const { loginMotorista, loginRestrito } = useAuth();
 
   // ── Etapa de login ──────────────────────────────────────────────────────
   const [step, setStep] = useState<Step>("matricula");
@@ -275,9 +275,9 @@ export function LoginScreen() {
       if (next.length === 6) {
         setAdminSubmitting(true);
         try {
-          await authApi.loginAdmin(next);
+          const { role } = await authApi.loginRestrito(next);
           setAdminModalOpen(false);
-          loginAdmin(next);
+          loginRestrito(role, next);
         } catch (err) {
           setAdminError(true);
           setTimeout(() => {
@@ -296,7 +296,7 @@ export function LoginScreen() {
         }
       }
     },
-    [adminDigits, loginAdmin, adminSubmitting]
+    [adminDigits, loginRestrito, adminSubmitting]
   );
 
   const handleAdminDelete = useCallback(() => {
@@ -415,8 +415,8 @@ export function LoginScreen() {
       >
         <View style={adm.overlay}>
           <View style={adm.box}>
-            <Text style={adm.title}>Acesso Gestor</Text>
-            <Text style={adm.sub}>PIN de administrador (6 dígitos)</Text>
+            <Text style={adm.title}>Acesso Restrito</Text>
+            <Text style={adm.sub}>PIN de administrador ou de consulta (6 dígitos)</Text>
 
             {adminLockMsg ? (
               <LockoutBanner message={adminLockMsg} />

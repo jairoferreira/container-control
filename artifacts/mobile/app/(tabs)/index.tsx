@@ -103,9 +103,11 @@ export default function DashboardScreen() {
               />
             </View>
             <View style={styles.headerBtns}>
-              <Pressable style={styles.addBtn} onPress={() => router.push("/(tabs)/nova-cautela")}>
-                <Plus size={18} color="#fff" />
-              </Pressable>
+              {user?.role !== "consulta" && (
+                <Pressable style={styles.addBtn} onPress={() => router.push("/(tabs)/nova-cautela")}>
+                  <Plus size={18} color="#fff" />
+                </Pressable>
+              )}
               <Pressable style={styles.addBtn} onPress={handleLogout}>
                 <LogOut size={17} color="rgba(255,255,255,0.8)" />
               </Pressable>
@@ -138,13 +140,17 @@ export default function DashboardScreen() {
           <View style={[styles.empty, { backgroundColor: colors.card, borderColor: colors.border }]}> 
             <Inbox size={32} color={colors.mutedForeground} />
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Nenhuma cautela registrada</Text>
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>Toque em + para registrar a primeira movimentação</Text>
-            <Pressable
-              style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
-              onPress={() => router.push("/(tabs)/nova-cautela")}
-            >
-              <Text style={styles.emptyBtnText}>Nova Cautela</Text>
-            </Pressable>
+            {user?.role !== "consulta" && (
+              <>
+                <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>Toque em + para registrar a primeira movimentação</Text>
+                <Pressable
+                  style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
+                  onPress={() => router.push("/(tabs)/nova-cautela")}
+                >
+                  <Text style={styles.emptyBtnText}>Nova Cautela</Text>
+                </Pressable>
+              </>
+            )}
           </View>
         ) : (
           recent.map((c) => <CautelaCard key={c.id} cautela={c} />)

@@ -3,6 +3,7 @@ import {
   Check,
   ChevronDown,
   Download,
+  Eye,
   FileSpreadsheet,
   FileText,
   Lock,
@@ -15,7 +16,8 @@ import {
   X,
 } from "lucide-react-native";
 
-import React, { useState } from "react";
+import { router } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Modal,
@@ -488,7 +490,9 @@ const mitem = StyleSheet.create({
 });
 
 // ── PIN Modal Admin ───────────────────────────────────────────────────────────
-function AdminPinModal({ visible, onConfirm, onClose }: { visible: boolean; onConfirm: (p: string) => void; onClose: () => void }) {
+function AdminPinModal({
+  visible, onConfirm, onClose, title = "Novo PIN do Administrador",
+}: { visible: boolean; onConfirm: (p: string) => void; onClose: () => void; title?: string }) {
   const colors = useColors();
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
@@ -500,7 +504,7 @@ function AdminPinModal({ visible, onConfirm, onClose }: { visible: boolean; onCo
     <Modal visible={visible} transparent animationType="fade" onRequestClose={() => { setValue(""); onClose(); }}>
       <View style={apm.overlay}>
         <View style={[apm.box, { backgroundColor: colors.card }]}>
-          <Text style={[apm.title, { color: colors.foreground }]}>Novo PIN do Administrador</Text>
+          <Text style={[apm.title, { color: colors.foreground }]}>{title}</Text>
           <TextInput
             style={[apm.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.input }]}
             value={value} onChangeText={(t) => { setValue(t.replace(/\D/g, "").slice(0, 6)); setError(""); }}
@@ -547,7 +551,15 @@ export default function ConfiguracoesScreen() {
     addMotorista, updateMotorista, removeMotorista,
     addPlaca, removePlaca,
   } = useSettings();
-  const { adminPin, loginAdmin } = useAuth();
+  const { user, adminPin, loginRestrito } = useAuth();
+
+  // Configurações é admin-only — bloqueia acesso direto pela URL no web
+  // pra motorista ou consulta (a aba já fica escondida pra eles).
+  useEffect(() => {
+    if (user && user.role !== "admin") {
+      router.replace("/(tabs)");
+    }
+  }, [user]);
 
   const { cauteias } = useCautela();
 
@@ -566,6 +578,7 @@ export default function ConfiguracoesScreen() {
   // ── Motorista modal ──────────────────────────────────────────────────────
   const [motoModal, setMotoModal] = useState<{ open: boolean; motorista: Motorista | null }>({ open: false, motorista: null });
   const [adminPinModal, setAdminPinModal] = useState(false);
+  const [consultaPinModal, setConsultaPinModal] = useState(false);
 
   // ── Exportação ───────────────────────────────────────────────────────────
   const [exportDataInicio,  setExportDataInicio]  = useState<Date | null>(null);
@@ -798,6 +811,25 @@ export default function ConfiguracoesScreen() {
           </Pressable>
         </SectionCard>
 
+        {/* ══ PIN DE CONSULTA ═════════════════════════════════════════════ */}
+        <SectionCard
+          title="PIN de Consulta"
+          icon={<Eye size={18} color={colors.primary} />}
+        >
+          <Text style={[styles.pinHint, { color: colors.mutedForeground }]}>
+            Acesso só-leitura pra quem precisa consultar e exportar cautelas
+            (ex: secretária) sem poder editar nada. Mesmo gesto de acesso
+            (3 toques no logo THIBA), com este PIN em vez do PIN do gestor.
+          </Text>
+          <Pressable
+            style={[styles.adminPinBtn, { backgroundColor: "#0e7490" }]}
+            onPress={() => setConsultaPinModal(true)}
+          >
+            <Eye size={16} color="#fff" />
+            <Text style={styles.adminPinText}>Definir / Alterar PIN de Consulta</Text>
+          </Pressable>
+        </SectionCard>
+
       </ScrollView>
 
       {/* ── Modais ──────────────────────────────────────────────────────── */}
@@ -824,7 +856,7 @@ export default function ConfiguracoesScreen() {
           if (!adminPin) { avisoSemPin(); return; }
           try {
             await authApi.trocarPinAdmin(adminPin, newPin);
-            loginAdmin(newPin);
+            loginRestrito("admin", newPin);
             setAdminPinModal(false);
             Alert.alert("✅ Salvo", "PIN do administrador atualizado.");
           } catch (err) {
@@ -832,6 +864,22 @@ export default function ConfiguracoesScreen() {
           }
         }}
         onClose={() => setAdminPinModal(false)}
+      />
+
+      <AdminPinModal
+        visible={consultaPinModal}
+        title="Novo PIN de Consulta"
+        onConfirm={async (newPin) => {
+          if (!adminPin) { avisoSemPin(); return; }
+          try {
+            await authApi.definirPinConsulta(adminPin, newPin);
+            setConsultaPinModal(false);
+            Alert.alert("✅ Salvo", "PIN de consulta definido.");
+          } catch (err) {
+            avisoErro(err);
+          }
+        }}
+        onClose={() => setConsultaPinModal(false)}
       />
     </View>
   );

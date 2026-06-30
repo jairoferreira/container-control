@@ -15,6 +15,7 @@ import { CautelaCard } from "@/components/CautelaCard";
 import type { StatusCautela } from "@/contexts/CautelaContext";
 import { useCautela } from "@/contexts/CautelaContext";
 import { exportarCSV } from "@/lib/exportCautelasCSV";
+import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { safeBottom, safeTop } from "@/hooks/useSafeAreaWeb";
 
@@ -29,6 +30,7 @@ export default function HistoricoScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { cauteias } = useCautela();
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<StatusCautela | "todos">("todos");
   const [exporting, setExporting] = useState(false);
@@ -78,13 +80,15 @@ export default function HistoricoScreen() {
           >
             <Download size={20} color="#fff" />
           </Pressable>
-          {/* Nova cautela */}
-          <Pressable
-            style={styles.headerBtn}
-            onPress={() => router.push("/(tabs)/nova-cautela")}
-          >
-            <Plus size={20} color="#fff" />
-          </Pressable>
+          {/* Nova cautela — consulta é só-leitura, não cria cautela */}
+          {user?.role !== "consulta" && (
+            <Pressable
+              style={styles.headerBtn}
+              onPress={() => router.push("/(tabs)/nova-cautela")}
+            >
+              <Plus size={20} color="#fff" />
+            </Pressable>
+          )}
         </View>
       </View>
 

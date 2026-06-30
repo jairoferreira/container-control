@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUp, CheckCircle2, Save } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Animated,
@@ -232,6 +232,13 @@ export default function NovaCautelaScreen() {
   const { cauteias, addCautela } = useCautela();
   const { settings } = useSettings();
   const { user } = useAuth();
+
+  // Consulta é só-leitura — não cria cautela. Bloqueia acesso direto pela URL.
+  useEffect(() => {
+    if (user?.role === "consulta") {
+      router.replace("/(tabs)");
+    }
+  }, [user]);
 
   // Motorista travado quando logado como motorista; admin pode escolher
   const motoristaLocked = !!user && !user.isAdmin;
