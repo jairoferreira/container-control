@@ -43,6 +43,7 @@ Para acesso remoto (demo, celular etc.), usar **Cloudflare Tunnel** (`cloudflare
 - Instalável como app no celular (PWA) — ícone da Thiba, tela cheia, sem barra do navegador
 - Tutorial animado interativo (`/tutorial.html`) explicando o preenchimento pro motorista
 - Testado e aprovado pelo usuário em iPhone real
+- **3 perfis de acesso**: Motorista (cria/sincroniza cautelas), Admin/Gestor (tudo + cadastros + PINs), e **Consulta** (só-leitura — Dashboard + Histórico + exportação, sem editar nada; pensado pra secretária/conferência). Consulta acessa pelo mesmo gesto (3 toques no logo), com um PIN próprio definido pelo admin em Configurações
 
 ## Pendente / próximos passos
 
